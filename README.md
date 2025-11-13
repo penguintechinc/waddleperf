@@ -1,20 +1,20 @@
-```
-     ___     
-    (.  \    
-     \   |   ___   ___   _| | _| | | |  ___   ___    ___   _ _   ___ 
-      >  )  |Wad| |ddl| |dl| |dl| | | ||Per| |rfo|  |rma| |nce| |   |
-     /  /    \_/   \_/   \_/  \_/  |_/  \_/   \_/    \_/  \_\_\ |___|
-    /  /     Waddle fast, test faster! 🚀
-   (  (      Network Performance Testing at Penguin Speed
-    \ \_     
-     \__)    
-```
-
 <div align="center">
-  <img src="waddleperf-penguin.svg" alt="WaddlePerf Northern Rockhopper Penguin Mascot" width="200" height="200">
+
+# 🐧 WaddlePerf
+
+### Network Performance Testing at Penguin Speed
+
+*Waddle fast, test faster!* 🚀
+
+<img src="waddleperf-penguin.svg" alt="WaddlePerf Northern Rockhopper Penguin Mascot" width="200" height="200">
+
+[![License](https://img.shields.io/badge/license-Proprietary-blue.svg)](docs/LICENSE.md)
+[![Version](https://img.shields.io/badge/version-2.0-green.svg)](https://github.com/penguintechinc/WaddlePerf/releases)
+[![Docker](https://img.shields.io/badge/docker-compose-blue.svg)](docker-compose.yml)
+
 </div>
 
-# WaddlePerf
+---
 
 This is a project to allow for complete testing of user experience from one system to another.
 
