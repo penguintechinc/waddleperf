@@ -266,7 +266,7 @@ function TestRunner({ user, onLogout, authEnabled }: TestRunnerProps) {
       </main>
 
       <footer className="footer">
-        <p>WaddlePerf Web Client v1.0.0 | Network Performance Testing Platform</p>
+        <p>WaddlePerf Web Client v4.0.0 | Network Performance Testing Platform</p>
       </footer>
     </div>
   )

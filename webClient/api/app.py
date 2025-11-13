@@ -371,7 +371,7 @@ def run_test(test_type: str):
 
         headers = {}
         if user:
-            headers['Authorization'] = f'Bearer {user.api_key}'
+            headers['Authorization'] = f'ApiKey {user.api_key}'
 
         # Forward to testServer
         response = requests.post(
@@ -430,7 +430,7 @@ def handle_start_test(data):
             user = validate_api_key(api_key)
 
         if not user:
-            emit('error', {'error': 'Authentication required'})
+            emit('error', {'error': 'Authentication required', 'status': 401})
             return
 
     # Validate parameters
@@ -458,7 +458,7 @@ def handle_start_test(data):
 
         headers = {}
         if user:
-            headers['Authorization'] = f'Bearer {user.api_key}'
+            headers['Authorization'] = f'ApiKey {user.api_key}'
 
         # Execute test and stream results
         response = requests.post(
