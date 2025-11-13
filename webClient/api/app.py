@@ -197,6 +197,7 @@ def login():
     if not username or not password:
         return jsonify({'error': 'Username and password required'}), 400
 
+    conn = None
     try:
         # Validate credentials against database
         conn = get_db_connection()
@@ -246,7 +247,8 @@ def login():
         logger.error(f"Login error: {e}")
         return jsonify({'error': 'Login failed'}), 500
     finally:
-        conn.close()
+        if conn:
+            conn.close()
 
 
 @app.route('/api/auth/logout', methods=['POST'])

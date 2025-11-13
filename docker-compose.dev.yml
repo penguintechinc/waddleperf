@@ -135,11 +135,18 @@ services:
       FLASK_ENV: development
       FLASK_DEBUG: 1
       PORT: 5001
+      FRONTEND_URL: http://localhost:3001
+      DB_HOST: mariadb
+      DB_PORT: 3306
+      DB_USER: ${DB_USER:-waddleperf}
+      DB_PASS: ${DB_PASS:-dev_password}
+      DB_NAME: ${DB_NAME:-waddleperf}
     ports:
       - "5001:5001"
     volumes:
       - ./webClient/api:/app:ro
     depends_on:
+      - mariadb
       - testserver
       - managerserver-api
     healthcheck:
@@ -161,6 +168,7 @@ services:
     environment:
       VITE_API_URL: http://localhost:5001
       VITE_WS_URL: ws://localhost:5001
+      VITE_TESTSERVER_URL: http://localhost:8080
       NODE_ENV: development
     ports:
       - "3001:80"

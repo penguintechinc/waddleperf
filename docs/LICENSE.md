@@ -1,4 +1,4 @@
-## Additional Exception/Condition
+## Additional Exception/Condition Preamble
 
 Repacking this software for commercial use is not permitted without an explicit commercial license granted by the software owner. Commercial use includes, but is not limited to, reselling, bundling, or offering the software as a service. This product may not be sold or used outside of internal corporate or individual non-commercial use, except by the owners of this repository, unless a license is purchased. The AGPL-3.0 license applies for internal or non-commercial individual user use cases. This ensures funding to maintain the project continues and ensures fair use. Contact the project maintainers for licensing options.
 

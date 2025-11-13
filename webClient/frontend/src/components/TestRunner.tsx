@@ -4,6 +4,8 @@ import { websocketService, TestCompleteData, TestProgressData } from '../service
 import TestForm from './TestForm'
 import TestResults from './TestResults'
 import RealtimeCharts from './RealtimeCharts'
+import SpeedTest from './SpeedTest'
+import ThemeToggle from './ThemeToggle'
 import './TestRunner.css'
 
 interface User {
@@ -26,6 +28,7 @@ export interface LatencyDataPoint {
 }
 
 function TestRunner({ user, onLogout, authEnabled }: TestRunnerProps) {
+  const [activeTab, setActiveTab] = useState<'tests' | 'speedtest'>('tests')
   const [isRunningTest, setIsRunningTest] = useState(false)
   const [testProgress, setTestProgress] = useState(0)
   const [testResult, setTestResult] = useState<TestCompleteData | null>(null)
@@ -155,6 +158,7 @@ function TestRunner({ user, onLogout, authEnabled }: TestRunnerProps) {
                 {wsConnected ? 'Connected' : 'Disconnected'}
               </div>
             </div>
+            <ThemeToggle />
             {authEnabled && user && (
               <div className="user-menu">
                 <span className="user-name">{user.username}</span>
@@ -169,59 +173,82 @@ function TestRunner({ user, onLogout, authEnabled }: TestRunnerProps) {
 
       <main className="main-content">
         <div className="container">
-          <div className="grid-layout">
-            <div className="test-config-section">
-              <TestForm onTestStart={handleTestStart} isRunning={isRunningTest} />
-            </div>
-
-            <div className="test-monitoring-section">
-              {isRunningTest && (
-                <div className="progress-section">
-                  <h3>Test Progress</h3>
-                  <div className="progress-bar">
-                    <div className="progress-fill" style={{ width: `${testProgress}%` }}>
-                      <span className="progress-text">{testProgress.toFixed(0)}%</span>
-                    </div>
-                  </div>
-                </div>
-              )}
-
-              {(isRunningTest || latencyData.length > 0) && (
-                <RealtimeCharts
-                  latencyData={latencyData}
-                  currentMetrics={currentMetrics}
-                  isRunning={isRunningTest}
-                />
-              )}
-
-              {testResult && !isRunningTest && <TestResults result={testResult} />}
-
-              {!isRunningTest && !testResult && latencyData.length === 0 && (
-                <div className="welcome-message">
-                  <h2>Welcome to WaddlePerf</h2>
-                  <p>Configure and run network performance tests using the form on the left.</p>
-                  <div className="features-list">
-                    <div className="feature-item">
-                      <strong>HTTP Testing</strong>
-                      <span>Test HTTP/1.1, HTTP/2, and HTTP/3 performance</span>
-                    </div>
-                    <div className="feature-item">
-                      <strong>TCP Testing</strong>
-                      <span>Test raw TCP, SSH, and TLS connections</span>
-                    </div>
-                    <div className="feature-item">
-                      <strong>UDP Testing</strong>
-                      <span>Test DNS queries and raw UDP performance</span>
-                    </div>
-                    <div className="feature-item">
-                      <strong>ICMP Testing</strong>
-                      <span>Test network reachability and latency</span>
-                    </div>
-                  </div>
-                </div>
-              )}
-            </div>
+          <div className="tab-navigation">
+            <button
+              className={`tab-button ${activeTab === 'tests' ? 'active' : ''}`}
+              onClick={() => setActiveTab('tests')}
+            >
+              Network Tests
+            </button>
+            <button
+              className={`tab-button ${activeTab === 'speedtest' ? 'active' : ''}`}
+              onClick={() => setActiveTab('speedtest')}
+            >
+              Speed Test
+            </button>
           </div>
+
+          {activeTab === 'tests' && (
+            <div className="grid-layout">
+              <div className="test-config-section">
+                <TestForm onTestStart={handleTestStart} isRunning={isRunningTest} />
+              </div>
+
+              <div className="test-monitoring-section">
+                {isRunningTest && (
+                  <div className="progress-section">
+                    <h3>Test Progress</h3>
+                    <div className="progress-bar">
+                      <div className="progress-fill" style={{ width: `${testProgress}%` }}>
+                        <span className="progress-text">{testProgress.toFixed(0)}%</span>
+                      </div>
+                    </div>
+                  </div>
+                )}
+
+                {(isRunningTest || latencyData.length > 0) && (
+                  <RealtimeCharts
+                    latencyData={latencyData}
+                    currentMetrics={currentMetrics}
+                    isRunning={isRunningTest}
+                  />
+                )}
+
+                {testResult && !isRunningTest && <TestResults result={testResult} />}
+
+                {!isRunningTest && !testResult && latencyData.length === 0 && (
+                  <div className="welcome-message">
+                    <h2>Welcome to WaddlePerf</h2>
+                    <p>Configure and run network performance tests using the form on the left.</p>
+                    <div className="features-list">
+                      <div className="feature-item">
+                        <strong>HTTP Testing</strong>
+                        <span>Test HTTP/1.1, HTTP/2, and HTTP/3 performance</span>
+                      </div>
+                      <div className="feature-item">
+                        <strong>TCP Testing</strong>
+                        <span>Test raw TCP, SSH, and TLS connections</span>
+                      </div>
+                      <div className="feature-item">
+                        <strong>UDP Testing</strong>
+                        <span>Test DNS queries and raw UDP performance</span>
+                      </div>
+                      <div className="feature-item">
+                        <strong>ICMP Testing</strong>
+                        <span>Test network reachability and latency</span>
+                      </div>
+                    </div>
+                  </div>
+                )}
+              </div>
+            </div>
+          )}
+
+          {activeTab === 'speedtest' && (
+            <div className="speedtest-layout">
+              <SpeedTest testServerUrl={import.meta.env.VITE_TESTSERVER_URL || 'http://localhost:8080'} />
+            </div>
+          )}
         </div>
       </main>
 

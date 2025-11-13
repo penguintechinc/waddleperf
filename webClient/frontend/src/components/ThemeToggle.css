@@ -1,0 +1,37 @@
+.theme-toggle {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.5rem 0.75rem;
+  background: transparent;
+  border: 1px solid var(--border-color);
+  border-radius: 6px;
+  color: var(--text-secondary);
+  cursor: pointer;
+  transition: all 0.2s;
+  font-size: 0.9rem;
+}
+
+.theme-toggle:hover {
+  background: var(--bg-color);
+  color: var(--text-primary);
+  border-color: var(--text-secondary);
+}
+
+.theme-toggle svg {
+  stroke-width: 2;
+}
+
+.theme-label {
+  font-weight: 500;
+}
+
+@media (max-width: 768px) {
+  .theme-label {
+    display: none;
+  }
+
+  .theme-toggle {
+    padding: 0.5rem;
+  }
+}

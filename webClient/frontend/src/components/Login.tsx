@@ -22,6 +22,13 @@ function Login({ onLogin }: LoginProps) {
     try {
       const response = await login({ username, password })
       console.log('[Login] Login successful')
+
+      // Store session_id for WebSocket authentication
+      if (response.session_id) {
+        sessionStorage.setItem('session_id', response.session_id)
+        console.log('[Login] Session ID stored')
+      }
+
       onLogin(response.user)
     } catch (err: unknown) {
       console.error('[Login] Login failed:', err)

@@ -51,6 +51,14 @@ func main() {
 	// Health check (no auth required)
 	router.HandleFunc("/health", testHandlers.HealthHandler).Methods("GET")
 
+	// SpeedTest endpoints (no auth required for public speedtest functionality)
+	speedtest := router.PathPrefix("/speedtest").Subrouter()
+	speedtest.Use(corsMiddleware)
+	speedtest.HandleFunc("/download", testHandlers.SpeedTestDownloadHandler).Methods("GET")
+	speedtest.HandleFunc("/upload", testHandlers.SpeedTestUploadHandler).Methods("POST", "OPTIONS")
+	speedtest.HandleFunc("/ping", testHandlers.SpeedTestPingHandler).Methods("GET")
+	speedtest.HandleFunc("/info", testHandlers.SpeedTestInfoHandler).Methods("GET")
+
 	// API routes (with auth)
 	api := router.PathPrefix("/api/v1").Subrouter()
 	api.Use(authenticator.Middleware)
@@ -65,9 +73,9 @@ func main() {
 	server := &http.Server{
 		Addr:         fmt.Sprintf(":%s", port),
 		Handler:      router,
-		ReadTimeout:  15 * time.Second,
-		WriteTimeout: 60 * time.Second,
-		IdleTimeout:  120 * time.Second,
+		ReadTimeout:  120 * time.Second,  // Increased for speedtest uploads
+		WriteTimeout: 120 * time.Second,  // Increased for speedtest downloads
+		IdleTimeout:  180 * time.Second,
 	}
 
 	// Start server in goroutine
