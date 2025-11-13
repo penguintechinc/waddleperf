@@ -68,8 +68,8 @@
   border: 1px solid rgba(148, 163, 184, 0.2);
   border-radius: 6px;
   font-size: 1rem;
-  background-color: rgba(15, 23, 42, 0.5);
-  color: #f8fafc;
+  background-color: rgba(15, 23, 42, 0.7);
+  color: #94a3b8;
   transition: border-color 0.2s, box-shadow 0.2s, background-color 0.2s;
 }
 
@@ -83,12 +83,27 @@
   outline: none;
   border-color: var(--primary-color);
   box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.15);
-  background-color: rgba(15, 23, 42, 0.7);
+  background-color: rgba(255, 255, 255, 0.98) !important;
+  color: #0f172a !important;
 }
 
 [data-theme='light'] .form-group input:focus {
   background-color: white;
   box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.1);
+}
+
+/* Prevent autofill from overriding styles */
+.form-group input:-webkit-autofill,
+.form-group input:-webkit-autofill:hover,
+.form-group input:-webkit-autofill:focus {
+  -webkit-box-shadow: 0 0 0px 1000px rgba(15, 23, 42, 0.7) inset !important;
+  -webkit-text-fill-color: #94a3b8 !important;
+  transition: background-color 5000s ease-in-out 0s;
+}
+
+.form-group input:-webkit-autofill:focus {
+  -webkit-box-shadow: 0 0 0px 1000px rgba(255, 255, 255, 0.98) inset !important;
+  -webkit-text-fill-color: #0f172a !important;
 }
 
 .error-message {

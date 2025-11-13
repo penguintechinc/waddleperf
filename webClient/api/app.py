@@ -37,7 +37,11 @@ app.config['SESSION_COOKIE_SAMESITE'] = 'Lax'
 CORS(app, supports_credentials=True, origins=os.getenv('FRONTEND_URL', 'http://localhost:3000').split(','))
 
 # Initialize SocketIO with CORS support
-socketio = SocketIO(app, cors_allowed_origins=os.getenv('FRONTEND_URL', 'http://localhost:3000').split(','))
+socketio = SocketIO(
+    app,
+    cors_allowed_origins=os.getenv('FRONTEND_URL', 'http://localhost:3000').split(','),
+    cors_credentials=True
+)
 
 # Configuration
 MANAGER_URL = os.getenv('MANAGER_URL', 'http://localhost:5001')
@@ -459,8 +463,12 @@ def handle_start_test(data):
         headers = {}
         if user:
             headers['Authorization'] = f'ApiKey {user.api_key}'
+            logger.info(f"WebSocket test: Authenticated as user {user.username} (ID: {user.id})")
+        else:
+            logger.warning("WebSocket test: No authentication (AUTH_ENABLED=False)")
 
         # Execute test and stream results
+        logger.info(f"Sending test request to testServer: {TESTSERVER_URL}/api/v1/test/{test_type}")
         response = requests.post(
             f'{TESTSERVER_URL}/api/v1/test/{test_type}',
             json=test_request,
@@ -469,6 +477,7 @@ def handle_start_test(data):
             stream=True
         )
 
+        logger.info(f"testServer response: {response.status_code}")
         if response.status_code == 200:
             # Try to parse as streaming JSON or return complete result
             try:
@@ -494,6 +503,7 @@ def handle_start_test(data):
                 logger.error(f"Error parsing test result: {e}")
                 emit('error', {'error': 'Failed to parse test results'})
         else:
+            logger.error(f"testServer returned {response.status_code}: {response.text[:200]}")
             emit('error', {'error': 'Test execution failed', 'status': response.status_code})
 
     except requests.exceptions.RequestException as e:

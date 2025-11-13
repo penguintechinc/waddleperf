@@ -55,52 +55,56 @@ WaddlePerf is a distributed network performance testing and monitoring platform 
 
 **Performance**: 100+ concurrent tests, 13 MB binary, 50 MB Docker image
 
-### 3. managerServer API (Flask)
+### 3. managerServer (Flask + React) - Split Container Architecture
 
-**Technology**: Python 3.13, Flask 3.0, SQLAlchemy, Gunicorn + gevent
-**Purpose**: Management backend for authentication, user management, and statistics
+**Container 1: managerServer API**
+- **Technology**: Python 3.13, Flask 3.0, SQLAlchemy, Gunicorn + gevent
+- **Purpose**: Management backend for authentication, user management, and statistics
+- **Port**: 5000 (HTTP), 50051 (gRPC)
+- **Responsibilities**:
+  - User authentication (username/password, MFA/TOTP)
+  - JWT token issuance and revocation
+  - User CRUD operations with role-based access control
+  - Organization Unit management
+  - Statistics aggregation and querying
 
-**Responsibilities**:
-- User authentication (username/password, MFA/TOTP)
-- JWT token issuance and revocation
-- User CRUD operations with role-based access control
-- Organization Unit management
-- Statistics aggregation and querying
+**Container 2: managerServer Frontend**
+- **Technology**: React 18, TypeScript, Vite, Recharts, nginx
+- **Purpose**: Management dashboard for administrators
+- **Port**: 3000
+- **Features**:
+  - User management with role assignment
+  - Organization Unit management
+  - Statistics visualization
+  - MFA setup with QR codes
+  - Light/dark/auto theme support
 
-### 4. managerServer Frontend (React + TypeScript)
+**Note**: managerServer uses separate backend/frontend containers in both development (docker-compose) and production (GitHub Actions builds).
 
-**Technology**: React 18, TypeScript, Vite, Recharts
-**Purpose**: Management dashboard for administrators
+### 4. webClient (Flask + React) - Split Container Architecture
 
-**Features**:
-- User management with role assignment
-- Organization Unit management
-- Statistics visualization
-- MFA setup with QR codes
-- Light/dark/auto theme support
+**Container 1: webClient API**
+- **Technology**: Python 3.13, Flask 3.0, Flask-SocketIO, Gunicorn + eventlet
+- **Purpose**: Backend for browser-based network testing with real-time updates
+- **Port**: 5001
+- **Features**: WebSocket server for live test streaming, authentication proxy
 
-### 5. webClient API (Flask + Flask-SocketIO)
+**Container 2: webClient Frontend**
+- **Technology**: React 18, TypeScript, Vite, Recharts, Socket.IO, nginx
+- **Purpose**: Browser-based network testing interface
+- **Port**: 3001
+- **Features**: Real-time charts, live gauges, interactive test forms
 
-**Technology**: Python 3.13, Flask 3.0, Flask-SocketIO
-**Purpose**: Backend for browser-based network testing with real-time updates
+**Note**: webClient uses separate backend/frontend containers in both development (docker-compose) and production (GitHub Actions builds).
 
-**Features**: WebSocket server for live test streaming, authentication proxy
-
-### 6. webClient Frontend (React + TypeScript)
-
-**Technology**: React 18, TypeScript, Vite, Recharts, Socket.IO
-**Purpose**: Browser-based network testing interface
-
-**Features**: Real-time charts, live gauges, interactive test forms
-
-### 7. containerClient (Python)
+### 6. containerClient (Python)
 
 **Technology**: Python 3.13, AsyncIO
 **Purpose**: Automated scheduled testing for continuous monitoring
 
 **Features**: Cron-like scheduling, multi-protocol testing, device auto-detection
 
-### 8. goClient (Go Thick Client)
+### 7. goClient (Go Thick Client)
 
 **Technology**: Go 1.21, Cobra CLI
 **Purpose**: Cross-platform desktop client for manual and scheduled testing

@@ -84,10 +84,10 @@ WaddlePerf 4.x uses a modern, containerized architecture with multiple component
 
 ### Components
 
-- **testServer** (Go) - High-performance test execution engine
-- **managerServer** (Python/Flask + React) - Centralized management and authentication
-- **webClient** (Python/Flask + React) - Browser-based testing interface
-- **containerClient** (Python) - Automated container-based testing
+- **testServer** (Go) - High-performance test execution engine (single container)
+- **managerServer** (Python/Flask + React) - Centralized management and authentication (split: API + frontend containers)
+- **webClient** (Python/Flask + React) - Browser-based testing interface (split: API + frontend containers)
+- **containerClient** (Python) - Automated container-based testing (single container)
 - **goClient** (Go) - Cross-platform desktop client (in development)
 - **MariaDB Galera Cluster** - High-availability database with multi-master replication
   - Supports multi-write nodes for active-active configuration
