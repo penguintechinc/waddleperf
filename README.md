@@ -78,47 +78,119 @@ This can be an endpoint testing it's internet connectivity, testing latency betw
 
 </div>
 
-## AUTOPERF
-All tests are given a tier number of 1-3
+## Architecture
 
-Our auto-perf mode runs any enabled tier 1 tests every X minutes defined by the deployer. 
+WaddlePerf 2.0 uses a modern, containerized architecture with multiple components:
 
-It will then check to see if any upper bounds has been passed. If it has went over the upper bounds, tier 2 is ran.
+### Components
 
-If the tier 2 upper bounds are passed, it runs any defined tier 3 apps which are enabled.
+- **testServer** (Go) - High-performance test execution engine
+- **managerServer** (Python/Flask + React) - Centralized management and authentication
+- **webClient** (Python/Flask + React) - Browser-based testing interface
+- **containerClient** (Python) - Automated container-based testing
+- **goClient** (Go) - Cross-platform desktop client (in development)
+- **MariaDB** - Centralized database for user management and test results
 
+### Test Types
 
-Note, in autoperf mode, the tier has to be set and the tool must have been enabled.
+WaddlePerf implements all network testing natively without external dependencies:
 
-## Results
+- **HTTP/HTTPS Tests**: HTTP/1.1, HTTP/2, and HTTP/3 support with detailed timing metrics
+- **TCP Tests**: Raw TCP, TLS/SSL, and SSH connection testing
+- **UDP Tests**: Raw UDP packets and DNS query testing
+- **ICMP Tests**: Ping and traceroute with comprehensive latency analysis
+- **Speed Tests**: Browser-based bandwidth testing with multi-stream downloads/uploads
+- **Download Tests**: Sustained transfer performance measurement
 
-Results are dropped to one or more of the following:
-* Web Client Console
-* S3 - if configured
-* Syslog endpoints (coming in later versions)
-* Central Management DB - if enterprise build and licensed
+All tests provide:
+- Real-time progress updates via WebSocket
+- Detailed timing breakdowns (DNS, TCP connect, TLS handshake, etc.)
+- Packet loss and jitter measurements
+- Historical result storage and analysis
 
-# Tests being ran
-* Pping - https://github.com/wzv5/pping
-* Httptrace - https://github.com/watson/http-traceroute
-* HttpPing - https://github.com/folkertvanheusden/HTTPing
-* Mtr - https://github.com/traviscross/mtr/
-* SSHPing - https://github.com/spook/sshping
-* MTU-Test - Our custom MTU tester which tests with DF to see what size of packet can be sent via ping
-* UDP-PING - Our custom UDP ping client and server combination
+## Quick Start
 
-# License
-can be found in docs/LICENSE.md
+### Prerequisites
 
-# Contributing
-can be found in docs/CONTRIBUTING.md
+- Docker and Docker Compose
+- 4GB RAM minimum
+- Ports 3000, 3001, 5000, 5001, 8080, 8081 available
 
-# Usage
-* can be found in docs/USAGE.md
-* please use named stable deployments, not main or latest, for production deployments without being given instructions from Penguin Technologies Inc.
+### Installation
 
-All packages are scanned by socket.dev, snyk, and more to ensure security gold standard! 
-However, if you find something we miss (we're only human), please open an issue or email us at: security@penguintech.io 
+```bash
+# Clone the repository
+git clone https://github.com/penguintechinc/WaddlePerf.git
+cd WaddlePerf
 
-# Contributors
-* PenguinzTech
+# Start all services
+docker-compose up -d
+
+# Check status
+docker-compose ps
+```
+
+### Access the Interfaces
+
+- **webClient**: http://localhost:3001 (browser-based testing)
+- **managerServer**: http://localhost:3000 (user management & analytics)
+- **Adminer**: http://localhost:8081 (database management)
+
+**Default Credentials:**
+- Username: `admin`
+- Password: `ChangeMeAlready`
+- **⚠️ Change immediately in production!**
+
+## Documentation
+
+📚 **[Complete Usage Guide](docs/USAGE.md)** - Detailed instructions for all features
+
+📖 **Other Documentation:**
+- [Installation Guide](docs/INSTALLATION.md) - Deployment instructions
+- [Architecture Overview](docs/ARCHITECTURE.md) - System design and components
+- [Contributing Guide](docs/CONTRIBUTING.md) - Development guidelines
+- [API Documentation](docs/API.md) - REST API reference
+- [License](docs/LICENSE.md) - Terms and conditions
+
+## Results Storage
+
+Test results are stored in:
+- **Database** - MariaDB for centralized storage and querying
+- **Web Interface** - Real-time display in browser
+- **API** - REST endpoints for programmatic access
+- **S3** (optional) - Long-term archival storage
+- **Syslog** (coming soon) - Integration with logging infrastructure
+
+## Security
+
+All packages are scanned by:
+- socket.dev
+- Snyk
+- GitHub Security Advisories
+
+**Found a security issue?**
+Please report it to: security@penguintech.io
+
+## Support
+
+- **Issues**: [GitHub Issues](https://github.com/penguintechinc/WaddlePerf/issues)
+- **Discussions**: [GitHub Discussions](https://github.com/penguintechinc/WaddlePerf/discussions)
+- **Documentation**: [docs/](docs/)
+
+## Production Deployment
+
+⚠️ Please use named stable releases (not `main` or `latest`) for production deployments unless instructed by Penguin Technologies Inc.
+
+Check [releases page](https://github.com/penguintechinc/WaddlePerf/releases) for stable versions.
+
+## License
+
+See [docs/LICENSE.md](docs/LICENSE.md) for full license terms.
+
+## Contributors
+
+- **PenguinzTech** - Original author and maintainer
+
+---
+
+**Copyright © 2025 Penguin Technologies Inc.**
