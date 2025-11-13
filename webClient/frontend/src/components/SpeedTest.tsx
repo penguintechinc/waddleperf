@@ -193,9 +193,15 @@ function SpeedTest({ testServerUrl }: SpeedTestProps) {
     const testDuration = 10000 // 10 seconds
 
     // Generate random data to upload
+    // Note: crypto.getRandomValues() has a 65KB limit, so we fill in chunks
     const chunkSize = chunkSizeMB * 1024 * 1024
     const uploadData = new Uint8Array(chunkSize)
-    crypto.getRandomValues(uploadData)
+    const maxChunkSize = 65536 // 64KB max for getRandomValues
+
+    for (let i = 0; i < chunkSize; i += maxChunkSize) {
+      const chunkEnd = Math.min(i + maxChunkSize, chunkSize)
+      crypto.getRandomValues(uploadData.subarray(i, chunkEnd))
+    }
 
     const startTime = Date.now()
     let totalBytes = 0

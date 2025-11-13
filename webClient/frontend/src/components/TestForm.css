@@ -43,7 +43,8 @@
   border-radius: 6px;
   font-size: 0.95rem;
   transition: border-color 0.2s, box-shadow 0.2s;
-  background-color: white;
+  background-color: var(--card-bg);
+  color: var(--text-primary);
 }
 
 .form-group input:focus,
@@ -70,7 +71,7 @@
   padding: 0.75rem;
   border: 2px solid var(--border-color);
   border-radius: 6px;
-  background-color: white;
+  background-color: var(--card-bg);
   color: var(--text-primary);
   font-weight: 600;
   font-size: 0.9rem;

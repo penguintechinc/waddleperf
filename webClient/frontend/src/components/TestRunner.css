@@ -5,7 +5,7 @@
 }
 
 .header {
-  background: white;
+  background: var(--card-bg);
   border-bottom: 1px solid var(--border-color);
   box-shadow: var(--shadow-sm);
   position: sticky;
@@ -173,7 +173,7 @@
 
 .test-config-section,
 .test-monitoring-section {
-  background: white;
+  background: var(--card-bg);
   border-radius: 8px;
   box-shadow: var(--shadow-sm);
 }
@@ -267,7 +267,7 @@
 }
 
 .footer {
-  background: white;
+  background: var(--card-bg);
   border-top: 1px solid var(--border-color);
   padding: 1.5rem;
   text-align: center;

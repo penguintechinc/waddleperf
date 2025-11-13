@@ -22,7 +22,7 @@
 }
 
 .speedtest-content {
-  background: white;
+  background: var(--card-bg);
   border-radius: 12px;
   padding: 2rem;
   box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
