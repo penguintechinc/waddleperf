@@ -3,17 +3,29 @@
   align-items: center;
   justify-content: center;
   min-height: 100vh;
-  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  background: linear-gradient(135deg, #1e293b 0%, #0f172a 100%);
   padding: 1rem;
 }
 
 .login-card {
-  background: var(--card-bg);
+  background: rgba(30, 41, 59, 0.95);
+  border: 1px solid rgba(148, 163, 184, 0.1);
   border-radius: 12px;
-  box-shadow: var(--shadow-lg);
+  box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.3), 0 10px 10px -5px rgba(0, 0, 0, 0.2);
+  backdrop-filter: blur(10px);
   padding: 2.5rem;
   width: 100%;
   max-width: 420px;
+}
+
+[data-theme='light'] .login-card {
+  background: rgba(255, 255, 255, 0.95);
+  border: 1px solid rgba(226, 232, 240, 0.8);
+  box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.1), 0 10px 10px -5px rgba(0, 0, 0, 0.05);
+}
+
+[data-theme='light'] .login-container {
+  background: linear-gradient(135deg, #475569 0%, #334155 100%);
 }
 
 .login-header {
@@ -53,16 +65,30 @@
 
 .form-group input {
   padding: 0.75rem 1rem;
-  border: 1px solid var(--border-color);
+  border: 1px solid rgba(148, 163, 184, 0.2);
   border-radius: 6px;
   font-size: 1rem;
-  transition: border-color 0.2s, box-shadow 0.2s;
+  background-color: rgba(15, 23, 42, 0.5);
+  color: #f8fafc;
+  transition: border-color 0.2s, box-shadow 0.2s, background-color 0.2s;
+}
+
+[data-theme='light'] .form-group input {
+  background-color: rgba(255, 255, 255, 0.9);
+  color: #1e293b;
+  border: 1px solid rgba(203, 213, 225, 0.8);
 }
 
 .form-group input:focus {
   outline: none;
   border-color: var(--primary-color);
-  box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.1);
+  box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.15);
+  background-color: rgba(15, 23, 42, 0.7);
+}
+
+[data-theme='light'] .form-group input:focus {
+  background-color: white;
+  box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.1);
 }
 
 .error-message {

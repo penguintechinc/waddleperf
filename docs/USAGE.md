@@ -33,7 +33,7 @@ cp .env.example .env
 
 3. **Start all services**
 ```bash
-docker-compose -f docker-compose.dev.yml up -d
+docker-compose up -d
 ```
 
 4. **Access the interfaces**
@@ -280,6 +280,81 @@ The webClient provides a browser-based interface for running network performance
 **Note**: If authentication is disabled (`AUTH_ENABLED=false`), you can use webClient without logging in.
 
 ---
+
+### Speed Test
+
+The webClient includes a built-in browser-based speed test that measures your connection's download, upload, latency, and jitter.
+
+![Speed Test Running](screenshots/webclient-speedtest-running.png)
+
+**To run a speed test:**
+
+1. Navigate to the **Speed Test** tab
+2. Click **Start Test**
+3. Wait for the test to complete (approximately 15-30 seconds)
+4. View results in the modal that appears
+
+The speed test runs in three phases:
+1. **Latency**: Measures ping time with 20 samples
+2. **Download**: Tests download speed using 6 parallel streams
+3. **Upload**: Tests upload speed using 6 parallel streams
+
+![Speed Test Results](screenshots/webclient-speedtest-results.png)
+
+**Speed Test Results Include:**
+- **Download Speed**: Maximum throughput in Mbps
+- **Upload Speed**: Maximum throughput in Mbps
+- **Latency**: Average round-trip time in milliseconds
+- **Jitter**: Latency variation in milliseconds
+
+**Use Cases:**
+- Verify ISP bandwidth claims
+- Diagnose slow connection issues
+- Compare performance across locations
+- Test before/after network changes
+
+---
+
+### Download Test
+
+The Download Test measures download performance with various file sizes to test sustained transfer speeds.
+
+![Download Test Options](screenshots/webclient-downloadtest-options.png)
+
+**To run a download test:**
+
+1. Navigate to the **Download Test** tab
+2. Select file size:
+   - **10 MB**: Quick test
+   - **50 MB**: Medium test
+   - **100 MB**: Standard test (default)
+   - **500 MB**: Long test
+   - **1 GB**: Extended test
+3. Click **Start Test**
+4. Monitor real-time speed during download
+5. View final results in the modal
+
+![Download Test Results](screenshots/webclient-downloadtest-results.png)
+
+**Download Test Results Include:**
+- **File Size**: Total data transferred
+- **Duration**: Time taken in seconds
+- **Average Speed**: Mean download speed in Mbps
+- **Peak Speed**: Maximum download speed achieved
+
+**Use Cases:**
+- Test sustained download performance
+- Verify large file transfer speeds
+- Compare speeds across different file sizes
+- Diagnose throttling or speed degradation
+
+---
+
+### Network Tests
+
+The Network Tests tab provides HTTP, TCP, UDP, and ICMP testing capabilities for comprehensive network diagnostics.
+
+![Network Test Options](screenshots/webclient-networktest-options.png)
 
 ### Running HTTP/HTTPS Tests
 

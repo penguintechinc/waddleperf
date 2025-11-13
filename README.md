@@ -20,6 +20,21 @@ This is a project to allow for complete testing of user experience from one syst
 
 This can be an endpoint testing it's internet connectivity, testing latency between regions, or even within cluster.
 
+## Features
+
+- **Speed Testing**: Browser-based bandwidth testing (download, upload, latency, jitter)
+- **Network Diagnostics**: Comprehensive HTTP/TCP/UDP/ICMP testing
+- **Real-Time Monitoring**: WebSocket-based live test progress
+- **Multi-Client Support**: Web, Desktop (Go), Container clients
+- **Centralized Management**: User authentication, API keys, organization units
+- **Historical Analytics**: Database-backed results storage and analysis
+
+### Web Client Interface
+
+![Network Testing](docs/screenshots/webclient-networktest-options.png)
+
+![Speed Test Results](docs/screenshots/webclient-speedtest-results.png)
+
 ## AUTOPERF
 All tests are given a tier number of 1-3
 

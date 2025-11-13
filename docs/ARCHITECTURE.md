@@ -130,7 +130,7 @@ WaddlePerf is a distributed network performance testing and monitoring platform 
 
 ### Development
 ```bash
-docker-compose -f docker-compose.dev.yml up -d
+docker-compose up -d
 ```
 
 **Services**:

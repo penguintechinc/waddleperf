@@ -171,7 +171,7 @@ cp .env.example .env
 
 ```bash
 # Start database and backend services
-docker-compose -f docker-compose.dev.yml up -d mariadb testserver managerserver-api webclient-api
+docker-compose up -d mariadb testserver managerserver-api webclient-api
 
 # Start frontends in development mode (hot reload)
 cd managerServer/frontend
@@ -257,8 +257,8 @@ WaddlePerf/
 │   ├── CONTRIBUTING.md     # This file
 │   └── ARCHITECTURE.md     # Architecture overview
 │
-├── docker-compose.yml      # Production compose file
-├── docker-compose.dev.yml  # Development compose file
+├── docker-compose.yml      # Docker compose configuration
+├── docker-compose.yml.old  # Old compose file (backup)
 └── .env.example            # Environment variables template
 ```
 
@@ -602,7 +602,7 @@ Before submitting, ensure the entire stack works:
 
 ```bash
 # Start all services
-docker-compose -f docker-compose.dev.yml up -d
+docker-compose up -d
 
 # Wait for services to be healthy
 sleep 10

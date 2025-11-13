@@ -1,272 +1,231 @@
 version: '3.8'
 
 services:
-  # MariaDB Galera Cluster (Single-node for basic prod, multi-node recommended)
+  # MariaDB Galera Cluster (Single-node for dev, multi-node for prod)
   mariadb:
     image: mariadb:11.2
     container_name: waddleperf-mariadb
     environment:
-      MYSQL_ROOT_PASSWORD: ${DB_ROOT_PASSWORD}
+      MYSQL_ROOT_PASSWORD: ${DB_ROOT_PASSWORD:-dev_root_password}
       MYSQL_DATABASE: ${DB_NAME:-waddleperf}
       MYSQL_USER: ${DB_USER:-waddleperf}
-      MYSQL_PASSWORD: ${DB_PASS}
+      MYSQL_PASSWORD: ${DB_PASS:-dev_password}
     ports:
-      - "${DB_PORT:-3306}:3306"
+      - "3306:3306"
     volumes:
       - mariadb_data:/var/lib/mysql
       - ./database/schema.sql:/docker-entrypoint-initdb.d/01-schema.sql:ro
+      - ./database/seeds/01_dev_data.sql:/docker-entrypoint-initdb.d/02-dev_data.sql:ro
+      - ./database/03_add_config_and_tokens.sql:/docker-entrypoint-initdb.d/03-config-tokens.sql:ro
     healthcheck:
       test: ["CMD", "healthcheck.sh", "--connect", "--innodb_initialized"]
-      interval: 30s
-      timeout: 10s
+      interval: 10s
+      timeout: 5s
       retries: 5
-      start_period: 40s
     networks:
       - waddleperf-network
-    restart: unless-stopped
-    deploy:
-      resources:
-        limits:
-          cpus: '2.0'
-          memory: 4G
-        reservations:
-          cpus: '1.0'
-          memory: 2G
 
-  # testServer (Go) - High-performance multi-protocol test execution
+  # testServer (Go) - High-performance test execution server
   testserver:
     build:
       context: ./testServer
       dockerfile: Dockerfile
-    image: ghcr.io/penguincloud/waddleperf-testserver:latest
     container_name: waddleperf-testserver
     environment:
-      MANAGER_KEY: ${MANAGER_KEY}
-      MANAGER_URL: ${MANAGER_GRPC_URL:-grpc://managerserver-api:50051}
-      DB_HOST: ${DB_HOST:-mariadb}
-      DB_PORT: ${DB_PORT:-3306}
+      MANAGER_KEY: ${MANAGER_KEY:-0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef}
+      MANAGER_URL: grpc://managementserver-api:50051
+      DB_HOST: mariadb
+      DB_PORT: 3306
       DB_USER: ${DB_USER:-waddleperf}
-      DB_PASS: ${DB_PASS}
+      DB_PASS: ${DB_PASS:-dev_password}
       DB_NAME: ${DB_NAME:-waddleperf}
       AUTH_ENABLED: ${AUTH_ENABLED:-true}
-      LOG_LEVEL: ${LOG_LEVEL:-info}
-      MAX_CONCURRENT_TESTS: ${MAX_CONCURRENT_TESTS:-100}
+      LOG_LEVEL: ${LOG_LEVEL:-debug}
+      MAX_CONCURRENT_TESTS: 100
       PORT: 8080
     ports:
-      - "${TESTSERVER_PORT:-8080}:8080"
+      - "8080:8080"
     depends_on:
       mariadb:
         condition: service_healthy
     healthcheck:
       test: ["CMD", "wget", "--no-verbose", "--tries=1", "--spider", "http://localhost:8080/health"]
       interval: 30s
-      timeout: 5s
-      retries: 3
-      start_period: 15s
-    networks:
-      - waddleperf-network
-    restart: unless-stopped
-    deploy:
-      resources:
-        limits:
-          cpus: '2.0'
-          memory: 2G
-        reservations:
-          cpus: '0.5'
-          memory: 512M
-
-  # managerServer API (Flask) - Management backend with authentication
-  managerserver-api:
-    build:
-      context: ./managerServer/api
-      dockerfile: Dockerfile.api
-    image: ghcr.io/penguincloud/waddleperf-manager-api:latest
-    container_name: waddleperf-manager-api
-    environment:
-      MANAGER_KEY: ${MANAGER_KEY}
-      SECRET_KEY: ${SECRET_KEY}
-      JWT_SECRET: ${JWT_SECRET}
-      DB_HOST: ${DB_HOST:-mariadb}
-      DB_PORT: ${DB_PORT:-3306}
-      DB_USER: ${DB_USER:-waddleperf}
-      DB_PASS: ${DB_PASS}
-      DB_NAME: ${DB_NAME:-waddleperf}
-      JWT_EXPIRATION_HOURS: ${JWT_EXPIRATION_HOURS:-24}
-      MFA_REQUIRED: ${MFA_REQUIRED:-false}
-      FLASK_ENV: production
-      LOG_LEVEL: ${LOG_LEVEL:-info}
-      PORT: 5000
-    ports:
-      - "${MANAGER_API_PORT:-5000}:5000"
-      - "${MANAGER_GRPC_PORT:-50051}:50051"
-    depends_on:
-      mariadb:
-        condition: service_healthy
-    healthcheck:
-      test: ["CMD", "wget", "--no-verbose", "--tries=1", "--spider", "http://localhost:5000/health"]
-      interval: 30s
-      timeout: 5s
-      retries: 3
-      start_period: 15s
-    networks:
-      - waddleperf-network
-    restart: unless-stopped
-    deploy:
-      resources:
-        limits:
-          cpus: '1.0'
-          memory: 1G
-        reservations:
-          cpus: '0.25'
-          memory: 256M
-
-  # managerServer Frontend (React) - Management dashboard UI
-  managerserver-frontend:
-    build:
-      context: ./managerServer/frontend
-      dockerfile: Dockerfile.frontend
-    image: ghcr.io/penguincloud/waddleperf-manager-frontend:latest
-    container_name: waddleperf-manager-frontend
-    environment:
-      VITE_API_URL: ${MANAGER_API_URL:-http://localhost:5000}
-    ports:
-      - "${MANAGER_FRONTEND_PORT:-3000}:80"
-    depends_on:
-      managerserver-api:
-        condition: service_healthy
-    healthcheck:
-      test: ["CMD", "wget", "--no-verbose", "--tries=1", "--spider", "http://localhost"]
-      interval: 30s
-      timeout: 5s
+      timeout: 3s
       retries: 3
       start_period: 10s
     networks:
       - waddleperf-network
     restart: unless-stopped
-    deploy:
-      resources:
-        limits:
-          cpus: '0.5'
-          memory: 256M
-        reservations:
-          cpus: '0.1'
-          memory: 64M
 
-  # webClient API (Flask) - Browser-based test client backend with WebSocket
+  # managerServer API (Flask) - Management backend
+  managerserver-api:
+    build:
+      context: ./managerServer/api
+      dockerfile: Dockerfile.api
+    container_name: waddleperf-manager-api
+    environment:
+      MANAGER_KEY: ${MANAGER_KEY:-0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef}
+      SECRET_KEY: ${SECRET_KEY:-dev-secret-key-change-in-production}
+      JWT_SECRET: ${JWT_SECRET:-dev-jwt-secret-change-in-production}
+      DB_HOST: mariadb
+      DB_PORT: 3306
+      DB_USER: ${DB_USER:-waddleperf}
+      DB_PASS: ${DB_PASS:-dev_password}
+      DB_NAME: ${DB_NAME:-waddleperf}
+      MFA_REQUIRED: ${MFA_REQUIRED:-false}
+      FLASK_ENV: development
+      FLASK_DEBUG: 1
+      LOG_LEVEL: debug
+      PORT: 5000
+    ports:
+      - "5000:5000"
+      - "50051:50051"  # gRPC port
+    volumes:
+      - ./managerServer/api:/app:ro
+    depends_on:
+      mariadb:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:5000/health"]
+      interval: 30s
+      timeout: 3s
+      retries: 3
+      start_period: 10s
+    networks:
+      - waddleperf-network
+    restart: unless-stopped
+
+  # managerServer Frontend (React) - Management UI
+  managerserver-frontend:
+    build:
+      context: ./managerServer/frontend
+      dockerfile: Dockerfile.frontend
+    container_name: waddleperf-manager-frontend
+    environment:
+      VITE_API_URL: http://localhost:5000
+      NODE_ENV: development
+    ports:
+      - "3000:80"
+    volumes:
+      - ./managerServer/frontend/src:/app/src:ro
+      - ./managerServer/frontend/public:/app/public:ro
+    depends_on:
+      - managerserver-api
+    healthcheck:
+      test: ["CMD", "wget", "--no-verbose", "--tries=1", "--spider", "http://localhost"]
+      interval: 30s
+      timeout: 3s
+      retries: 3
+      start_period: 15s
+    networks:
+      - waddleperf-network
+    restart: unless-stopped
+
+  # webClient API (Flask) - Browser-based test client backend
   webclient-api:
     build:
-      context: ./webClient/api
+      context: ./webClient
       dockerfile: Dockerfile.api
-    image: ghcr.io/penguincloud/waddleperf-webclient-api:latest
     container_name: waddleperf-webclient-api
     environment:
       MANAGER_URL: http://managerserver-api:5000
       TESTSERVER_URL: http://testserver:8080
       AUTH_ENABLED: ${AUTH_ENABLED:-true}
-      FLASK_ENV: production
-      LOG_LEVEL: ${LOG_LEVEL:-info}
+      FLASK_ENV: development
+      FLASK_DEBUG: 1
       PORT: 5001
+      FRONTEND_URL: http://localhost:3001
+      DB_HOST: mariadb
+      DB_PORT: 3306
+      DB_USER: ${DB_USER:-waddleperf}
+      DB_PASS: ${DB_PASS:-dev_password}
+      DB_NAME: ${DB_NAME:-waddleperf}
     ports:
-      - "${WEBCLIENT_API_PORT:-5001}:5001"
+      - "5001:5001"
+    volumes:
+      - ./webClient/api:/app:ro
     depends_on:
-      testserver:
-        condition: service_healthy
-      managerserver-api:
-        condition: service_healthy
+      - mariadb
+      - testserver
+      - managerserver-api
     healthcheck:
-      test: ["CMD", "wget", "--no-verbose", "--tries=1", "--spider", "http://localhost:5001/health"]
+      test: ["CMD", "curl", "-f", "http://localhost:5001/health"]
       interval: 30s
-      timeout: 5s
-      retries: 3
-      start_period: 15s
-    networks:
-      - waddleperf-network
-    restart: unless-stopped
-    deploy:
-      resources:
-        limits:
-          cpus: '1.0'
-          memory: 1G
-        reservations:
-          cpus: '0.25'
-          memory: 256M
-
-  # webClient Frontend (React) - Browser-based test client UI
-  webclient-frontend:
-    build:
-      context: ./webClient/frontend
-      dockerfile: Dockerfile.frontend
-    image: ghcr.io/penguincloud/waddleperf-webclient-frontend:latest
-    container_name: waddleperf-webclient-frontend
-    environment:
-      VITE_API_URL: ${WEBCLIENT_API_URL:-http://localhost:5001}
-      VITE_WS_URL: ${WEBCLIENT_WS_URL:-ws://localhost:5001}
-    ports:
-      - "${WEBCLIENT_FRONTEND_PORT:-3001}:80"
-    depends_on:
-      webclient-api:
-        condition: service_healthy
-    healthcheck:
-      test: ["CMD", "wget", "--no-verbose", "--tries=1", "--spider", "http://localhost"]
-      interval: 30s
-      timeout: 5s
+      timeout: 3s
       retries: 3
       start_period: 10s
     networks:
       - waddleperf-network
     restart: unless-stopped
-    deploy:
-      resources:
-        limits:
-          cpus: '0.5'
-          memory: 256M
-        reservations:
-          cpus: '0.1'
-          memory: 64M
 
-  # containerClient (Python) - Automated scheduled testing container
+  # webClient Frontend (React) - Browser-based test client UI
+  webclient-frontend:
+    build:
+      context: ./webClient
+      dockerfile: Dockerfile.frontend
+    container_name: waddleperf-webclient-frontend
+    environment:
+      VITE_API_URL: http://localhost:5001
+      VITE_WS_URL: ws://localhost:5001
+      VITE_TESTSERVER_URL: http://localhost:8080
+      NODE_ENV: development
+    ports:
+      - "3001:80"
+    volumes:
+      - ./webClient/frontend/src:/app/src:ro
+      - ./webClient/frontend/public:/app/public:ro
+    depends_on:
+      - webclient-api
+    healthcheck:
+      test: ["CMD", "wget", "--no-verbose", "--tries=1", "--spider", "http://localhost"]
+      interval: 30s
+      timeout: 3s
+      retries: 3
+      start_period: 15s
+    networks:
+      - waddleperf-network
+    restart: unless-stopped
+
+  # containerClient (Python) - Automated testing container
   containerclient:
     build:
       context: ./containerClient
       dockerfile: Dockerfile
-    image: ghcr.io/penguincloud/waddleperf-containerclient:latest
     container_name: waddleperf-containerclient
     environment:
-      AUTH_TYPE: ${CLIENT_AUTH_TYPE:-apikey}
-      AUTH_USERNAME: ${CLIENT_AUTH_USERNAME:-}
-      AUTH_PASSWORD: ${CLIENT_AUTH_PASSWORD:-}
-      AUTH_APIKEY: ${CLIENT_AUTH_APIKEY}
-      AUTH_JWT: ${CLIENT_AUTH_JWT:-}
+      AUTH_TYPE: ${AUTH_TYPE:-apikey}
+      AUTH_APIKEY: ${AUTH_APIKEY:-test-api-key}
       MANAGER_URL: http://managerserver-api:5000
       TEST_SERVER_URL: http://testserver:8080
-      RUN_SECONDS: ${CLIENT_RUN_SECONDS:-3600}
-      ENABLE_HTTP_TEST: ${CLIENT_ENABLE_HTTP:-true}
-      ENABLE_TCP_TEST: ${CLIENT_ENABLE_TCP:-true}
-      ENABLE_UDP_TEST: ${CLIENT_ENABLE_UDP:-true}
-      ENABLE_ICMP_TEST: ${CLIENT_ENABLE_ICMP:-true}
-      HTTP_TARGET: ${CLIENT_HTTP_TARGET:-https://www.google.com}
-      TCP_TARGET: ${CLIENT_TCP_TARGET:-www.google.com:443}
-      UDP_TARGET: ${CLIENT_UDP_TARGET:-8.8.8.8:53}
-      ICMP_TARGET: ${CLIENT_ICMP_TARGET:-8.8.8.8}
-      DEVICE_SERIAL: ${CLIENT_DEVICE_SERIAL:-auto}
-      DEVICE_HOSTNAME: ${CLIENT_DEVICE_HOSTNAME:-auto}
-      LOG_LEVEL: ${LOG_LEVEL:-info}
+      RUN_SECONDS: ${RUN_SECONDS:-0}  # 0 = manual only in dev
+      ENABLE_HTTP_TEST: "true"
+      ENABLE_TCP_TEST: "true"
+      ENABLE_UDP_TEST: "true"
+      ENABLE_ICMP_TEST: "true"
+      DEVICE_SERIAL: dev-container-001
+      DEVICE_HOSTNAME: containerclient-dev
     depends_on:
-      testserver:
-        condition: service_healthy
-      managerserver-api:
-        condition: service_healthy
+      - testserver
+      - managerserver-api
+    networks:
+      - waddleperf-network
+    restart: "no"  # Manual execution in dev
+
+  # Adminer (Database Management UI)
+  adminer:
+    image: adminer:4.8.1
+    container_name: waddleperf-adminer
+    ports:
+      - "8081:8080"
+    environment:
+      ADMINER_DEFAULT_SERVER: mariadb
+      ADMINER_DESIGN: pepa-linha
+    depends_on:
+      - mariadb
     networks:
       - waddleperf-network
     restart: unless-stopped
-    deploy:
-      resources:
-        limits:
-          cpus: '0.5'
-          memory: 512M
-        reservations:
-          cpus: '0.1'
-          memory: 128M
 
 networks:
   waddleperf-network:

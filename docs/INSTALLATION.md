@@ -131,7 +131,7 @@ MANAGER_KEY=$(openssl rand -hex 32)
 
 ```bash
 # Development mode (with live reload)
-docker-compose -f docker-compose.dev.yml up -d
+docker-compose up -d
 
 # Or production mode
 docker-compose up -d

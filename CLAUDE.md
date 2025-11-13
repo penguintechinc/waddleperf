@@ -68,8 +68,10 @@ WaddlePerf is a comprehensive network performance testing and monitoring platfor
 
 ### For Docker
 - **ALWAYS** use `--no-cache` flag when building Docker images to ensure all changes are applied
-- Test builds with `docker-compose -f docker-compose.dev.yml build --no-cache`
-- Verify containers run with `docker-compose -f docker-compose.dev.yml up -d`
+- **ALWAYS** use `docker-compose down -v` when rebuilding containers or clusters to remove cached volumes and avoid stale data
+- Test builds with `docker-compose build --no-cache`
+- When rebuilding: `docker-compose down -v && docker-compose up -d`
+- Verify containers run with `docker-compose up -d`
 - Check health endpoints work correctly
 
 ## Build Commands
