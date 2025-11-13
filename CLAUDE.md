@@ -42,6 +42,55 @@ WaddlePerf is a comprehensive network performance testing and monitoring platfor
 - **Testing Tools**: Native implementations (HTTP/TCP/UDP/ICMP)
 - **CI/CD**: GitHub Actions
 
+## MariaDB Galera Cluster Compatibility
+
+WaddlePerf is designed to work with MariaDB Galera Cluster for high availability. To maintain compatibility, follow these critical rules:
+
+⚠️ **IMPORTANT**: Before making ANY database or schema changes, read [docs/DATABASE.md](docs/DATABASE.md) for complete Galera restrictions and best practices.
+
+### Database Schema Requirements
+- **PRIMARY KEYS REQUIRED**: All tables MUST have a primary key (multi-column keys are supported)
+  - DELETE operations will FAIL on tables without primary keys
+  - Always define primary keys in schema migrations
+- **Use InnoDB only**: All tables must use InnoDB storage engine
+  - MyISAM has experimental support but should be avoided
+  - System tables (mysql.*) are not replicated
+
+### Locking Restrictions
+- **AVOID explicit table locks**: Do NOT use `LOCK TABLES` or `FLUSH TABLES {table_list} WITH READ LOCK`
+- **GET_LOCK() / RELEASE_LOCK()**: These functions are NOT supported
+- **Global locks ARE supported**: `FLUSH TABLES WITH READ LOCK` works for full database locks
+- **DDL does NOT wait**: DDL statements execute immediately without waiting for metadata locks from parallel DML transactions
+
+### Transaction and Replication Limitations
+- **NO distributed transactions (XA)**: Do not use XA transactions or two-phase commits
+- **Row-based replication only**: `binlog_format` must be ROW (never change at runtime)
+- **FLUSH PRIVILEGES not replicated**: After user/permission changes, run on ALL nodes or restart cluster
+- **Auto-increment gaps**: Do NOT rely on sequential auto-increment values
+  - Galera uses increment offsets to avoid conflicts
+  - Gaps in sequences are normal and expected
+
+### Operations to Avoid
+- **Large transactions**: Keep transactions small to avoid certification conflicts
+- **Hot spots**: Avoid high-contention updates to the same rows across nodes
+- **Long-running transactions**: May cause certification failures on commit
+- **Changing binlog_format at runtime**: Will crash ALL nodes in the cluster
+
+### Best Practices for WaddlePerf Development
+1. **Always define primary keys** in CREATE TABLE statements
+2. **Use InnoDB explicitly** for all tables
+3. **Keep transactions short** - commit frequently
+4. **Avoid table locks** - use row-level locking patterns
+5. **Test with multiple nodes** - verify no certification conflicts occur
+6. **Handle deadlocks gracefully** - Galera can have different deadlock patterns than standalone MariaDB
+7. **Monitor cluster status** - check `wsrep_cluster_status` and `wsrep_ready` variables
+
+### Performance Considerations
+- Cluster performance is limited by the **slowest node**
+- Write performance may be lower than standalone due to certification overhead
+- Read performance can scale horizontally across nodes
+- Network latency between nodes directly impacts commit times
+
 ## Docker Image Standards
 - **Python services**: MUST use Debian-based images (e.g., `python:3.12-slim` or `python:3.12`)
   - Alpine images cause compilation issues with packages like gevent, bcrypt, cryptography
