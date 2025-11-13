@@ -5,6 +5,7 @@ import TestForm from './TestForm'
 import TestResults from './TestResults'
 import RealtimeCharts from './RealtimeCharts'
 import SpeedTest from './SpeedTest'
+import DownloadTest from './DownloadTest'
 import ThemeToggle from './ThemeToggle'
 import './TestRunner.css'
 
@@ -28,7 +29,7 @@ export interface LatencyDataPoint {
 }
 
 function TestRunner({ user, onLogout, authEnabled }: TestRunnerProps) {
-  const [activeTab, setActiveTab] = useState<'tests' | 'speedtest'>('tests')
+  const [activeTab, setActiveTab] = useState<'tests' | 'speedtest' | 'download'>('tests')
   const [isRunningTest, setIsRunningTest] = useState(false)
   const [testProgress, setTestProgress] = useState(0)
   const [testResult, setTestResult] = useState<TestCompleteData | null>(null)
@@ -186,6 +187,12 @@ function TestRunner({ user, onLogout, authEnabled }: TestRunnerProps) {
             >
               Speed Test
             </button>
+            <button
+              className={`tab-button ${activeTab === 'download' ? 'active' : ''}`}
+              onClick={() => setActiveTab('download')}
+            >
+              Download Test
+            </button>
           </div>
 
           {activeTab === 'tests' && (
@@ -247,6 +254,12 @@ function TestRunner({ user, onLogout, authEnabled }: TestRunnerProps) {
           {activeTab === 'speedtest' && (
             <div className="speedtest-layout">
               <SpeedTest testServerUrl={import.meta.env.VITE_TESTSERVER_URL || 'http://localhost:8080'} />
+            </div>
+          )}
+
+          {activeTab === 'download' && (
+            <div className="downloadtest-layout">
+              <DownloadTest testServerUrl={import.meta.env.VITE_TESTSERVER_URL || 'http://localhost:8080'} />
             </div>
           )}
         </div>

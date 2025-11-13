@@ -67,8 +67,9 @@ WaddlePerf is a comprehensive network performance testing and monitoring platfor
 - Build for target platforms before committing
 
 ### For Docker
-- Test builds with `docker build`
-- Verify containers run with `docker run`
+- **ALWAYS** use `--no-cache` flag when building Docker images to ensure all changes are applied
+- Test builds with `docker-compose -f docker-compose.dev.yml build --no-cache`
+- Verify containers run with `docker-compose -f docker-compose.dev.yml up -d`
 - Check health endpoints work correctly
 
 ## Build Commands
