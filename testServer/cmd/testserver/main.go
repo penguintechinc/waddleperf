@@ -1,0 +1,118 @@
+package main
+
+import (
+	"context"
+	"fmt"
+	"log"
+	"net/http"
+	"os"
+	"os/signal"
+	"syscall"
+	"time"
+
+	"github.com/gorilla/mux"
+	"github.com/penguincloud/waddleperf/testserver/internal/auth"
+	"github.com/penguincloud/waddleperf/testserver/internal/database"
+	"github.com/penguincloud/waddleperf/testserver/internal/handlers"
+)
+
+func main() {
+	log.Println("🐧 WaddlePerf TestServer starting...")
+
+	// Load configuration from environment
+	dbConfig := database.Config{
+		Host:     getEnv("DB_HOST", "localhost"),
+		Port:     getEnv("DB_PORT", "3306"),
+		User:     getEnv("DB_USER", "waddleperf"),
+		Password: getEnv("DB_PASS", ""),
+		Database: getEnv("DB_NAME", "waddleperf"),
+	}
+
+	authEnabled := getEnv("AUTH_ENABLED", "true") == "true"
+	port := getEnv("PORT", "8080")
+	maxConcurrent := getEnv("MAX_CONCURRENT_TESTS", "100")
+
+	log.Printf("Config: auth_enabled=%v, max_concurrent=%s", authEnabled, maxConcurrent)
+
+	// Connect to database
+	db, err := database.New(dbConfig)
+	if err != nil {
+		log.Fatalf("Failed to connect to database: %v", err)
+	}
+	defer db.Close()
+
+	// Initialize components
+	authenticator := auth.New(db, authEnabled)
+	testHandlers := handlers.New(db)
+
+	// Setup router
+	router := mux.NewRouter()
+
+	// Health check (no auth required)
+	router.HandleFunc("/health", testHandlers.HealthHandler).Methods("GET")
+
+	// API routes (with auth)
+	api := router.PathPrefix("/api/v1").Subrouter()
+	api.Use(authenticator.Middleware)
+	api.Use(corsMiddleware)
+
+	api.HandleFunc("/test/http", testHandlers.HTTPTestHandler).Methods("POST")
+	api.HandleFunc("/test/tcp", testHandlers.TCPTestHandler).Methods("POST")
+	api.HandleFunc("/test/udp", testHandlers.UDPTestHandler).Methods("POST")
+	api.HandleFunc("/test/icmp", testHandlers.ICMPTestHandler).Methods("POST")
+
+	// Create HTTP server
+	server := &http.Server{
+		Addr:         fmt.Sprintf(":%s", port),
+		Handler:      router,
+		ReadTimeout:  15 * time.Second,
+		WriteTimeout: 60 * time.Second,
+		IdleTimeout:  120 * time.Second,
+	}
+
+	// Start server in goroutine
+	go func() {
+		log.Printf("✓ TestServer listening on port %s", port)
+		if err := server.ListenAndServe(); err != nil && err != http.ErrServerClosed {
+			log.Fatalf("Server failed: %v", err)
+		}
+	}()
+
+	// Wait for interrupt signal
+	quit := make(chan os.Signal, 1)
+	signal.Notify(quit, os.Interrupt, syscall.SIGTERM)
+	<-quit
+
+	log.Println("Shutting down server...")
+
+	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+	defer cancel()
+
+	if err := server.Shutdown(ctx); err != nil {
+		log.Fatalf("Server forced to shutdown: %v", err)
+	}
+
+	log.Println("Server stopped gracefully")
+}
+
+func corsMiddleware(next http.Handler) http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Access-Control-Allow-Origin", "*")
+		w.Header().Set("Access-Control-Allow-Methods", "GET, POST, OPTIONS")
+		w.Header().Set("Access-Control-Allow-Headers", "Content-Type, Authorization, X-Device-Serial, X-Device-Hostname, X-Device-OS, X-Device-OS-Version")
+
+		if r.Method == "OPTIONS" {
+			w.WriteHeader(http.StatusOK)
+			return
+		}
+
+		next.ServeHTTP(w, r)
+	})
+}
+
+func getEnv(key, defaultValue string) string {
+	if value := os.Getenv(key); value != "" {
+		return value
+	}
+	return defaultValue
+}

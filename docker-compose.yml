@@ -1,59 +1,280 @@
----
-version: "3.8"
+version: '3.8'
+
 services:
-  waddleperf-server:
-    build: ./server
-    platform: linux/amd64
-    image: ghcr.io/penguincloud/waddleperf-server
-    volumes:
-      - /var/logs
-      # - ./results.log:/var/www/waddleperf3/results.log:rw
-      # - ./private.pem:/opt/waddleperf3/private.pem
-      # - ./public.pem:/opt/waddleperf3/public.pem
-    env_file: .env
+  # MariaDB Galera Cluster (Single-node for basic prod, multi-node recommended)
+  mariadb:
+    image: mariadb:11.2
+    container_name: waddleperf-mariadb
+    environment:
+      MYSQL_ROOT_PASSWORD: ${DB_ROOT_PASSWORD}
+      MYSQL_DATABASE: ${DB_NAME:-waddleperf}
+      MYSQL_USER: ${DB_USER:-waddleperf}
+      MYSQL_PASSWORD: ${DB_PASS}
     ports:
-      - 80:80
-      - 443:443
-      - 5201:5201/tcp
-      - 5201:5201/udp
-      - 8080:8080
+      - "${DB_PORT:-3306}:3306"
+    volumes:
+      - mariadb_data:/var/lib/mysql
+      - ./database/schema.sql:/docker-entrypoint-initdb.d/01-schema.sql:ro
+    healthcheck:
+      test: ["CMD", "healthcheck.sh", "--connect", "--innodb_initialized"]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+      start_period: 40s
+    networks:
+      - waddleperf-network
+    restart: unless-stopped
+    deploy:
+      resources:
+        limits:
+          cpus: '2.0'
+          memory: 4G
+        reservations:
+          cpus: '1.0'
+          memory: 2G
+
+  # testServer (Go) - High-performance multi-protocol test execution
+  testserver:
+    build:
+      context: ./testServer
+      dockerfile: Dockerfile
+    image: ghcr.io/penguincloud/waddleperf-testserver:latest
+    container_name: waddleperf-testserver
+    environment:
+      MANAGER_KEY: ${MANAGER_KEY}
+      MANAGER_URL: ${MANAGER_GRPC_URL:-grpc://managerserver-api:50051}
+      DB_HOST: ${DB_HOST:-mariadb}
+      DB_PORT: ${DB_PORT:-3306}
+      DB_USER: ${DB_USER:-waddleperf}
+      DB_PASS: ${DB_PASS}
+      DB_NAME: ${DB_NAME:-waddleperf}
+      AUTH_ENABLED: ${AUTH_ENABLED:-true}
+      LOG_LEVEL: ${LOG_LEVEL:-info}
+      MAX_CONCURRENT_TESTS: ${MAX_CONCURRENT_TESTS:-100}
+      PORT: 8080
+    ports:
+      - "${TESTSERVER_PORT:-8080}:8080"
+    depends_on:
+      mariadb:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "wget", "--no-verbose", "--tries=1", "--spider", "http://localhost:8080/health"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 15s
+    networks:
+      - waddleperf-network
+    restart: unless-stopped
+    deploy:
+      resources:
+        limits:
+          cpus: '2.0'
+          memory: 2G
+        reservations:
+          cpus: '0.5'
+          memory: 512M
+
+  # managerServer API (Flask) - Management backend with authentication
+  managerserver-api:
+    build:
+      context: ./managerServer/api
+      dockerfile: Dockerfile.api
+    image: ghcr.io/penguincloud/waddleperf-manager-api:latest
+    container_name: waddleperf-manager-api
+    environment:
+      MANAGER_KEY: ${MANAGER_KEY}
+      SECRET_KEY: ${SECRET_KEY}
+      JWT_SECRET: ${JWT_SECRET}
+      DB_HOST: ${DB_HOST:-mariadb}
+      DB_PORT: ${DB_PORT:-3306}
+      DB_USER: ${DB_USER:-waddleperf}
+      DB_PASS: ${DB_PASS}
+      DB_NAME: ${DB_NAME:-waddleperf}
+      JWT_EXPIRATION_HOURS: ${JWT_EXPIRATION_HOURS:-24}
+      MFA_REQUIRED: ${MFA_REQUIRED:-false}
+      FLASK_ENV: production
+      LOG_LEVEL: ${LOG_LEVEL:-info}
+      PORT: 5000
+    ports:
+      - "${MANAGER_API_PORT:-5000}:5000"
+      - "${MANAGER_GRPC_PORT:-50051}:50051"
+    depends_on:
+      mariadb:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "wget", "--no-verbose", "--tries=1", "--spider", "http://localhost:5000/health"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 15s
+    networks:
+      - waddleperf-network
+    restart: unless-stopped
     deploy:
       resources:
         limits:
           cpus: '1.0'
-          memory: 2G
-      restart_policy:
-        condition: on-failure
-        max_attempts: 3
-    healthcheck:
-      test: ["CMD", "curl", "-f", "http://localhost:8080"]
-      interval: 30s
-      timeout: 10s
-      retries: 3
-      start_period: 30s
-waddleperf-client:
-    build: ./client
-    platform: linux/amd64
-    image: ghcr.io/penguincloud/waddleperf-client
-    volumes:
-      - /var/logs
-      # - ./results.log:/var/www/waddleperf3/results.log:rw
-      # - ./private.pem:/opt/waddleperf3/private.pem
-      # - ./public.pem:/opt/waddleperf3/public.pem
-    env_file: .env
+          memory: 1G
+        reservations:
+          cpus: '0.25'
+          memory: 256M
+
+  # managerServer Frontend (React) - Management dashboard UI
+  managerserver-frontend:
+    build:
+      context: ./managerServer/frontend
+      dockerfile: Dockerfile.frontend
+    image: ghcr.io/penguincloud/waddleperf-manager-frontend:latest
+    container_name: waddleperf-manager-frontend
+    environment:
+      VITE_API_URL: ${MANAGER_API_URL:-http://localhost:5000}
     ports:
-      - 8080:8080
+      - "${MANAGER_FRONTEND_PORT:-3000}:80"
+    depends_on:
+      managerserver-api:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "wget", "--no-verbose", "--tries=1", "--spider", "http://localhost"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 10s
+    networks:
+      - waddleperf-network
+    restart: unless-stopped
+    deploy:
+      resources:
+        limits:
+          cpus: '0.5'
+          memory: 256M
+        reservations:
+          cpus: '0.1'
+          memory: 64M
+
+  # webClient API (Flask) - Browser-based test client backend with WebSocket
+  webclient-api:
+    build:
+      context: ./webClient/api
+      dockerfile: Dockerfile.api
+    image: ghcr.io/penguincloud/waddleperf-webclient-api:latest
+    container_name: waddleperf-webclient-api
+    environment:
+      MANAGER_URL: http://managerserver-api:5000
+      TESTSERVER_URL: http://testserver:8080
+      AUTH_ENABLED: ${AUTH_ENABLED:-true}
+      FLASK_ENV: production
+      LOG_LEVEL: ${LOG_LEVEL:-info}
+      PORT: 5001
+    ports:
+      - "${WEBCLIENT_API_PORT:-5001}:5001"
+    depends_on:
+      testserver:
+        condition: service_healthy
+      managerserver-api:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "wget", "--no-verbose", "--tries=1", "--spider", "http://localhost:5001/health"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 15s
+    networks:
+      - waddleperf-network
+    restart: unless-stopped
     deploy:
       resources:
         limits:
           cpus: '1.0'
-          memory: 2G
-      restart_policy:
-        condition: on-failure
-        max_attempts: 3
+          memory: 1G
+        reservations:
+          cpus: '0.25'
+          memory: 256M
+
+  # webClient Frontend (React) - Browser-based test client UI
+  webclient-frontend:
+    build:
+      context: ./webClient/frontend
+      dockerfile: Dockerfile.frontend
+    image: ghcr.io/penguincloud/waddleperf-webclient-frontend:latest
+    container_name: waddleperf-webclient-frontend
+    environment:
+      VITE_API_URL: ${WEBCLIENT_API_URL:-http://localhost:5001}
+      VITE_WS_URL: ${WEBCLIENT_WS_URL:-ws://localhost:5001}
+    ports:
+      - "${WEBCLIENT_FRONTEND_PORT:-3001}:80"
+    depends_on:
+      webclient-api:
+        condition: service_healthy
     healthcheck:
-      test: ["CMD", "curl", "-f", "http://localhost:8080"]
+      test: ["CMD", "wget", "--no-verbose", "--tries=1", "--spider", "http://localhost"]
       interval: 30s
-      timeout: 10s
+      timeout: 5s
       retries: 3
-      start_period: 30s
+      start_period: 10s
+    networks:
+      - waddleperf-network
+    restart: unless-stopped
+    deploy:
+      resources:
+        limits:
+          cpus: '0.5'
+          memory: 256M
+        reservations:
+          cpus: '0.1'
+          memory: 64M
+
+  # containerClient (Python) - Automated scheduled testing container
+  containerclient:
+    build:
+      context: ./containerClient
+      dockerfile: Dockerfile
+    image: ghcr.io/penguincloud/waddleperf-containerclient:latest
+    container_name: waddleperf-containerclient
+    environment:
+      AUTH_TYPE: ${CLIENT_AUTH_TYPE:-apikey}
+      AUTH_USERNAME: ${CLIENT_AUTH_USERNAME:-}
+      AUTH_PASSWORD: ${CLIENT_AUTH_PASSWORD:-}
+      AUTH_APIKEY: ${CLIENT_AUTH_APIKEY}
+      AUTH_JWT: ${CLIENT_AUTH_JWT:-}
+      MANAGER_URL: http://managerserver-api:5000
+      TEST_SERVER_URL: http://testserver:8080
+      RUN_SECONDS: ${CLIENT_RUN_SECONDS:-3600}
+      ENABLE_HTTP_TEST: ${CLIENT_ENABLE_HTTP:-true}
+      ENABLE_TCP_TEST: ${CLIENT_ENABLE_TCP:-true}
+      ENABLE_UDP_TEST: ${CLIENT_ENABLE_UDP:-true}
+      ENABLE_ICMP_TEST: ${CLIENT_ENABLE_ICMP:-true}
+      HTTP_TARGET: ${CLIENT_HTTP_TARGET:-https://www.google.com}
+      TCP_TARGET: ${CLIENT_TCP_TARGET:-www.google.com:443}
+      UDP_TARGET: ${CLIENT_UDP_TARGET:-8.8.8.8:53}
+      ICMP_TARGET: ${CLIENT_ICMP_TARGET:-8.8.8.8}
+      DEVICE_SERIAL: ${CLIENT_DEVICE_SERIAL:-auto}
+      DEVICE_HOSTNAME: ${CLIENT_DEVICE_HOSTNAME:-auto}
+      LOG_LEVEL: ${LOG_LEVEL:-info}
+    depends_on:
+      testserver:
+        condition: service_healthy
+      managerserver-api:
+        condition: service_healthy
+    networks:
+      - waddleperf-network
+    restart: unless-stopped
+    deploy:
+      resources:
+        limits:
+          cpus: '0.5'
+          memory: 512M
+        reservations:
+          cpus: '0.1'
+          memory: 128M
+
+networks:
+  waddleperf-network:
+    driver: bridge
+    ipam:
+      config:
+        - subnet: 172.20.0.0/16
+
+volumes:
+  mariadb_data:
+    driver: local

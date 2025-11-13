@@ -1,9 +1,0 @@
----
-- name: Add cron job for automatically running playbook
-  ansible.builtin.cron:
-    name: servercron
-    job: "ansible-playbook /opt/{{app.title}}/entrypoint.yml --tags cron --connection=local"
-    hour: "1"
-    user: "{{ run.user }}"
-    cron_file: autoperf
-    disabled: true

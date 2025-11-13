@@ -1,7 +1,0 @@
----
-- name: "Create use {{ run.user }}"
-  ansible.builtin.user:
-    append: true
-    create_home: true
-    name: "{{ run.user }}"
-    password_lock: true

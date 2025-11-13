@@ -1,8 +1,0 @@
----
-- name: Copy httptrace binary
-  ansible.builtin.copy:
-    src: bins/httptrace.py
-    dest: /usr/local/bin/httptrace
-    owner: "{{ run.user }}"
-    group: "{{ run.user }}"
-    mode: "0755"

@@ -36,11 +36,21 @@ WaddlePerf is a comprehensive network performance testing and monitoring platfor
 - Requires multi-platform builds (Linux, Windows, macOS)
 
 ## Technology Stack
-- **Languages**: Python 3, Go
-- **Frameworks**: Flask (server), py4web (client)
-- **Infrastructure**: Docker, Ansible, nginx
-- **Testing Tools**: iperf3, pping, httptrace, MTR, sshping
+- **Languages**: Python 3.12, Go 1.23
+- **Frameworks**: Flask 3.0 (APIs), React 18 (frontends)
+- **Infrastructure**: Docker, Docker Compose, MariaDB Galera
+- **Testing Tools**: Native implementations (HTTP/TCP/UDP/ICMP)
 - **CI/CD**: GitHub Actions
+
+## Docker Image Standards
+- **Python services**: MUST use Debian-based images (e.g., `python:3.12-slim` or `python:3.12`)
+  - Alpine images cause compilation issues with packages like gevent, bcrypt, cryptography
+  - Debian images provide better compatibility and faster builds
+- **Go services**: Use Debian-based images for build stage (e.g., `golang:1.23-bookworm`), Alpine for runtime
+  - Build stage: `golang:1.23-bookworm` - better compatibility, faster builds
+  - Runtime stage: `alpine:3.19` - minimal size for static binaries
+- **Frontend services**: Use Alpine nginx (e.g., `nginx:alpine`)
+- **Node.js build stages**: Use Alpine (e.g., `node:18-alpine`)
 
 ## Testing Requirements
 

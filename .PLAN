@@ -1,0 +1,666 @@
+# WaddlePerf Complete Architecture Plan
+
+Based on `.REQUIREMENTS` - Scalable, stateless network performance testing platform
+
+---
+
+## System Overview
+
+**Goal**: Replace httping, httptrace, sshping, tcp_trace, udp_trace, tcp_ping, udp_ping, and iperf3 with a unified, scalable platform.
+
+**Components**: 5 containers + 1 thick client, all stateless and horizontally scalable behind load balancers.
+
+**Database**: MariaDB Galera cluster - **ONLY** persistence and state holder. All servers/clients are 100% stateless.
+
+---
+
+## Component Architecture
+
+### 1. testServer (Go)
+**Purpose**: High-performance test execution server, handles 100+ concurrent testers per node
+
+**State**: STATELESS - All state in MariaDB Galera
+
+**Protocols Supported**:
+- **HTTP**: 1.1, 2.0, 3.0 (prefers HTTP/2)
+- **TCP**: SSH, raw TCP, raw TCP+TLS
+- **UDP**: DNS, raw UDP, raw UDP+TLS
+- **ICMP**: Ping/traceroute
+
+**Features**:
+- Completely stateless - can scale horizontally behind load balancer
+- Authenticates via MariaDB Galera (reads user credentials, API keys, JWT)
+- Collects device metadata: serial, hostname, OS, OS version
+- Stores results directly in `server_test_results` table (no local storage)
+- Optional anonymous mode (auth disabled = no result collection)
+- 64-char shared key for managerServer communication (ENV: `MANAGER_KEY`)
+
+**Test Capabilities**:
+- Latency measurement with nanosecond precision
+- Throughput testing (upload/download)
+- Jitter measurement
+- Packet loss detection
+- Connection tracing (like httptrace, tcp_trace)
+- Load time statistics per protocol
+
+**Reusable Components**: Adapt existing Go speedtest foundation (handlers, auth middleware)
+
+**Endpoints**:
+- `/health` - Health check
+- `/api/v1/test/http` - HTTP tests (1.1/2/3)
+- `/api/v1/test/tcp` - TCP tests (raw/ssh/tls)
+- `/api/v1/test/udp` - UDP tests (raw/dns/tls)
+- `/api/v1/test/icmp` - ICMP ping/trace
+- `/api/v1/test/combined` - Run multiple test types
+
+**Docker**: Multi-arch (ARM64/AMD64), Alpine-based, GitHub Actions with buildx
+
+---
+
+### 2. managerServer (Flask + React/Node.js)
+**Purpose**: Management portal for users, organizations, statistics, and configuration
+
+**State**: STATELESS - All state in MariaDB Galera (including sessions)
+
+**Backend (Flask - Python 3.13)**:
+- Uses dataclasses, modern type hints, async where beneficial
+- REST API for user management (CRUD + password changes)
+- REST API for statistics queries (date ranges, user filters, device filters)
+- REST API for client configuration
+- **gRPC API** for testServer connections (HTTP/2)
+- REST API for client result uploads (`client_test_results` table)
+- Writes auth data to MariaDB (API keys, JWT, passwords)
+- Reads auth data from MariaDB for validation
+- **Session storage in MariaDB** (no Redis, no file storage)
+
+**Frontend (React/Node.js)**:
+- Dashboard with device/user search and autocomplete hints
+- Real-time metrics by device (polling MariaDB via API)
+- Light/Dark/Auto theme support (follows system preference)
+- User profile with API key display
+- Organization Unit (OU) management interface
+- MFA setup (Google Authenticator QR codes)
+
+**Authentication & Authorization**:
+- **Roles**:
+  - Global Admin: Full CRUD on all users, see everything
+  - Global Reporter: Read-only access to all stats
+  - OU Admin: CRUD users in assigned OU only
+  - OU Reporter: Read-only stats for assigned OU
+  - User: View own API key and stats only
+- **MFA**: Optional Google Authenticator (TOTP), configurable by Global Admin
+- **API Keys**: Each user has a unique API key (exposed in WebUI)
+- **Organization Units (OU)**: Users assigned to OUs for delegation
+
+**Database Operations**:
+- **Writes**: user CRUD, password changes, API key generation, JWT issuance, config updates, session storage
+- **Reads**: authentication validation, statistics queries, session retrieval
+
+**Endpoints**:
+- `/api/v1/auth/*` - Login, logout, MFA, token refresh
+- `/api/v1/users/*` - User management
+- `/api/v1/organizations/*` - OU management
+- `/api/v1/statistics/*` - Test result queries
+- `/api/v1/config/*` - Client configuration
+- `/api/v1/results/upload` - Client result submission
+- **gRPC**: `TestServerService` for testServer communication
+
+**Docker**: Multi-arch, includes nginx for static assets, GitHub Actions
+
+---
+
+### 3. webClient (Flask + React/Node.js)
+**Purpose**: Browser-based testing client with real-time visualization
+
+**State**: STATELESS - All state in MariaDB Galera
+
+**Backend (Flask)**:
+- Proxies test requests to testServer
+- Authenticates with managerServer (if auth enabled)
+- Validates user sessions via MariaDB
+- No local state storage
+
+**Frontend (React/Node.js)**:
+- Interactive test runner UI
+- Real-time line charts during tests (latency over time)
+- Real-time gauges (current throughput, jitter, packet loss)
+- Test configuration forms (protocol selection, duration, packet size, etc.)
+- Login flow (if auth enabled)
+- Good console logging (no sensitive data exposure)
+
+**Test Flow**:
+1. User logs in via managerServer (if auth enabled)
+2. Receives JWT/session token (stored in MariaDB)
+3. Configures test parameters
+4. Frontend sends test request to backend
+5. Backend forwards to testServer with auth
+6. testServer streams results back
+7. Frontend updates charts/gauges in real-time
+8. Final results displayed when complete
+
+**Protocols**: All browser-compatible protocols (HTTP, WebSocket for streaming results)
+
+**Docker**: Multi-arch, stateless, GitHub Actions
+
+---
+
+### 4. containerClient (Python 3.13)
+**Purpose**: Automated testing container for scheduled/cron-based testing
+
+**State**: STATELESS - Results uploaded directly to MariaDB via managerServer API
+
+**Features**:
+- Implements all tests available in testServer
+- Multi-threaded for concurrent test execution
+- Configurable via Docker ENV variables
+- Cron-like scheduling via ENV (e.g., `RUN_SECONDS=90`)
+- Uploads results to managerServer REST API (`/api/v1/results/upload`)
+- Can also run manually via CLI inside container
+- No local result storage
+
+**ENV Configuration**:
+- `AUTH_TYPE`: jwt, userpass, apikey, none
+- `AUTH_JWT` / `AUTH_USER` / `AUTH_PASS` / `AUTH_APIKEY`
+- `MANAGER_URL`: managerServer endpoint
+- `TEST_SERVER_URL`: testServer endpoint
+- `RUN_SECONDS`: Auto-run interval (0 = manual only)
+- `ENABLE_HTTP_TEST`: true/false
+- `ENABLE_TCP_TEST`: true/false
+- `ENABLE_UDP_TEST`: true/false
+- `ENABLE_ICMP_TEST`: true/false
+- `DEVICE_SERIAL`: Device identifier
+- `DEVICE_HOSTNAME`: Device hostname
+
+**CLI Usage** (inside container):
+```bash
+python /app/client.py --test-type http --host example.com
+python /app/client.py --test-type all --config /config/tests.json
+```
+
+**Docker**: Multi-arch, Python 3.13 Alpine-based, GitHub Actions
+
+---
+
+### 5. goClient (Go)
+**Purpose**: Cross-platform thick client for desktop/server deployments
+
+**State**: STATELESS - Results uploaded directly to MariaDB via managerServer API
+
+**Features**:
+- Implements all test types
+- YAML configuration file (`waddleperf-config.yaml`)
+- Cron-like scheduling (runs tests every X seconds)
+- Uploads results to managerServer REST API
+- System tray integration (optional, desktop only)
+- CLI mode for servers
+- No local result storage
+
+**YAML Config Example**:
+```yaml
+manager:
+  url: https://manager.example.com
+  api_key: "user-api-key-here"
+
+testServer:
+  url: https://tests.example.com
+
+tests:
+  http:
+    enabled: true
+    targets:
+      - https://example.com
+      - https://google.com
+  tcp:
+    enabled: true
+    targets:
+      - ssh://server.example.com:22
+  udp:
+    enabled: false
+  icmp:
+    enabled: true
+    targets:
+      - 8.8.8.8
+
+schedule:
+  interval_seconds: 300  # Run every 5 minutes
+
+device:
+  serial: "auto"  # auto-detect or manual
+  hostname: "auto"
+```
+
+**Build Targets** (GitHub Actions):
+- macOS: ARM64 (Apple Silicon), AMD64 (Intel)
+- Windows: AMD64, ARM64
+- Linux (Debian/Ubuntu): AMD64, ARM64
+
+**Build Method**: Use Docker containers in GHA for consistent cross-compilation
+
+**Binary Names**:
+- `waddleperf-darwin-arm64`
+- `waddleperf-darwin-amd64`
+- `waddleperf-windows-amd64.exe`
+- `waddleperf-windows-arm64.exe`
+- `waddleperf-linux-amd64`
+- `waddleperf-linux-arm64`
+
+---
+
+## Database Schema (MariaDB Galera)
+
+**CRITICAL**: MariaDB Galera is the **ONLY** state and persistence holder in the entire system.
+
+### Table: `users`
+```sql
+CREATE TABLE users (
+    id INT PRIMARY KEY AUTO_INCREMENT,
+    username VARCHAR(80) UNIQUE NOT NULL,
+    email VARCHAR(255) UNIQUE NOT NULL,
+    password_hash VARCHAR(255) NOT NULL,
+    api_key VARCHAR(64) UNIQUE NOT NULL,
+    role ENUM('global_admin', 'global_reporter', 'ou_admin', 'ou_reporter', 'user') NOT NULL DEFAULT 'user',
+    ou_id INT NULL,
+    mfa_enabled BOOLEAN DEFAULT FALSE,
+    mfa_secret VARCHAR(32) NULL,
+    is_active BOOLEAN DEFAULT TRUE,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+    INDEX idx_username (username),
+    INDEX idx_email (email),
+    INDEX idx_api_key (api_key),
+    INDEX idx_ou_id (ou_id),
+    FOREIGN KEY (ou_id) REFERENCES organization_units(id) ON DELETE SET NULL
+) ENGINE=InnoDB;
+```
+
+### Table: `organization_units`
+```sql
+CREATE TABLE organization_units (
+    id INT PRIMARY KEY AUTO_INCREMENT,
+    name VARCHAR(255) UNIQUE NOT NULL,
+    description TEXT NULL,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+    INDEX idx_name (name)
+) ENGINE=InnoDB;
+```
+
+### Table: `sessions`
+**Stores all session state for stateless servers**
+
+```sql
+CREATE TABLE sessions (
+    id INT PRIMARY KEY AUTO_INCREMENT,
+    session_id VARCHAR(64) UNIQUE NOT NULL,
+    user_id INT NOT NULL,
+    data JSON NULL,
+    expires_at TIMESTAMP NOT NULL,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    INDEX idx_session_id (session_id),
+    INDEX idx_user_id (user_id),
+    INDEX idx_expires_at (expires_at),
+    FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
+) ENGINE=InnoDB;
+```
+
+### Table: `jwt_tokens`
+```sql
+CREATE TABLE jwt_tokens (
+    id INT PRIMARY KEY AUTO_INCREMENT,
+    user_id INT NOT NULL,
+    token_hash VARCHAR(64) NOT NULL,
+    expires_at TIMESTAMP NOT NULL,
+    issued_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    revoked BOOLEAN DEFAULT FALSE,
+    INDEX idx_user_id (user_id),
+    INDEX idx_token_hash (token_hash),
+    INDEX idx_expires_at (expires_at),
+    FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
+) ENGINE=InnoDB;
+```
+
+### Table: `server_test_results`
+Results from tests executed by testServer (when clients connect to it)
+
+```sql
+CREATE TABLE server_test_results (
+    id BIGINT PRIMARY KEY AUTO_INCREMENT,
+    user_id INT NULL,
+    device_serial VARCHAR(255) NOT NULL,
+    device_hostname VARCHAR(255) NOT NULL,
+    device_os VARCHAR(100) NOT NULL,
+    device_os_version VARCHAR(100) NOT NULL,
+
+    test_type ENUM('http', 'tcp', 'udp', 'icmp') NOT NULL,
+    protocol_detail VARCHAR(50) NULL,
+
+    target_host VARCHAR(255) NOT NULL,
+    target_ip VARCHAR(45) NOT NULL,
+    client_ip VARCHAR(45) NOT NULL,
+
+    latency_ms DECIMAL(10,4) NULL,
+    throughput_mbps DECIMAL(12,4) NULL,
+    jitter_ms DECIMAL(10,4) NULL,
+    packet_loss_percent DECIMAL(5,2) NULL,
+
+    raw_results JSON NULL,
+
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+
+    INDEX idx_user_id (user_id),
+    INDEX idx_device_serial (device_serial),
+    INDEX idx_test_type (test_type),
+    INDEX idx_created_at (created_at),
+    INDEX idx_user_created (user_id, created_at),
+    FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE SET NULL
+) ENGINE=InnoDB;
+```
+
+### Table: `client_test_results`
+Results uploaded by clients (containerClient, goClient, webClient)
+
+```sql
+CREATE TABLE client_test_results (
+    id BIGINT PRIMARY KEY AUTO_INCREMENT,
+    user_id INT NULL,
+    device_serial VARCHAR(255) NOT NULL,
+    device_hostname VARCHAR(255) NOT NULL,
+    device_os VARCHAR(100) NOT NULL,
+    device_os_version VARCHAR(100) NOT NULL,
+
+    test_type ENUM('http', 'tcp', 'udp', 'icmp') NOT NULL,
+    protocol_detail VARCHAR(50) NULL,
+
+    target_host VARCHAR(255) NOT NULL,
+    target_ip VARCHAR(45) NOT NULL,
+
+    latency_ms DECIMAL(10,4) NULL,
+    throughput_mbps DECIMAL(12,4) NULL,
+    jitter_ms DECIMAL(10,4) NULL,
+    packet_loss_percent DECIMAL(5,2) NULL,
+
+    raw_results JSON NULL,
+
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+
+    INDEX idx_user_id (user_id),
+    INDEX idx_device_serial (device_serial),
+    INDEX idx_test_type (test_type),
+    INDEX idx_created_at (created_at),
+    INDEX idx_user_created (user_id, created_at),
+    FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE SET NULL
+) ENGINE=InnoDB;
+```
+
+### Table: `client_configs`
+Configuration pushed to clients from managerServer
+
+```sql
+CREATE TABLE client_configs (
+    id INT PRIMARY KEY AUTO_INCREMENT,
+    user_id INT NULL,
+    ou_id INT NULL,
+    config_name VARCHAR(255) NOT NULL,
+    config_data JSON NOT NULL,
+    is_default BOOLEAN DEFAULT FALSE,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+    INDEX idx_user_id (user_id),
+    INDEX idx_ou_id (ou_id),
+    FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE,
+    FOREIGN KEY (ou_id) REFERENCES organization_units(id) ON DELETE CASCADE
+) ENGINE=InnoDB;
+```
+
+### Table: `server_keys`
+64-character shared keys for server-to-server authentication
+
+```sql
+CREATE TABLE server_keys (
+    id INT PRIMARY KEY AUTO_INCREMENT,
+    key_hash VARCHAR(64) UNIQUE NOT NULL,
+    description VARCHAR(255) NULL,
+    is_active BOOLEAN DEFAULT TRUE,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    INDEX idx_key_hash (key_hash)
+) ENGINE=InnoDB;
+```
+
+---
+
+## Authentication Flow
+
+### User Authentication
+1. **managerServer** creates user with password, generates API key
+2. User logs into managerServer or webClient
+3. managerServer validates credentials from MariaDB, issues JWT
+4. JWT stored in `jwt_tokens` table, session in `sessions` table
+5. Clients send JWT or API key with requests
+6. **Both testServer and managerServer** query MariaDB to validate:
+   - JWT (check `jwt_tokens` table, verify not expired/revoked)
+   - API key (check `users.api_key` field)
+   - User/pass (check `users.password_hash`)
+
+### Server-to-Server Authentication
+1. Administrator generates 64-char random key
+2. Key stored in `server_keys` table (hashed)
+3. Key passed to testServer and managerServer via ENV: `MANAGER_KEY`
+4. testServer validates gRPC requests from managerServer using this key
+5. managerServer sends key in gRPC metadata/headers
+
+### Device Authentication
+1. Client sends: `device_serial`, `device_hostname`, `device_os`, `device_os_version`
+2. testServer validates user auth (JWT/API key) against MariaDB
+3. If valid, associates device info with test results
+4. If auth disabled, testServer rejects request (no anonymous result storage)
+
+---
+
+## Security Best Practices
+
+### Input Validation
+- All network inputs sanitized (hostnames, IPs, ports)
+- JSON payloads validated against schemas
+- SQL injection prevention (parameterized queries)
+- XSS prevention (React escaping, Content-Security-Policy headers)
+- Rate limiting on all public endpoints
+
+### Authentication
+- Passwords hashed with bcrypt (cost factor 12+)
+- API keys: 64 random bytes, hex-encoded
+- JWT: HS256 or RS256, short expiration (15 min access, 7 day refresh)
+- MFA: TOTP (Google Authenticator), 6-digit codes
+- Server keys: 64 random bytes, hex-encoded
+
+### TLS/HTTPS
+- All production traffic over TLS 1.3
+- HSTS headers
+- Certificate pinning for server-to-server communication
+
+### Docker Security
+- Non-root user execution (UID 1000)
+- Read-only root filesystem where possible
+- Minimal base images (Alpine)
+- No hardcoded secrets (all via ENV)
+- Security scanning in CI/CD
+
+---
+
+## Performance Optimizations
+
+### testServer (Go)
+- Goroutines for concurrent connections (100+ per node)
+- Connection pooling to MariaDB Galera
+- Zero-copy I/O where possible
+- HTTP/2 multiplexing
+- QUIC for HTTP/3 support
+- Structured logging (JSON) for performance
+
+### managerServer (Flask)
+- Gunicorn with gevent workers
+- Connection pooling (SQLAlchemy) to MariaDB
+- Session queries optimized with proper indexes
+- Async operations for non-blocking I/O (Python 3.13 asyncio)
+- Query optimization (indexes, query analysis)
+
+### Clients
+- **containerClient**: Multi-threaded (Python ThreadPoolExecutor)
+- **goClient**: Goroutines for concurrent tests
+- **webClient**: React virtualization for large result sets
+
+### Database (MariaDB Galera)
+- Multi-master replication for high availability
+- Read/write from any node
+- Galera Cluster for synchronous replication
+- Indexes on all foreign keys and query columns
+- Partitioning for `*_test_results` tables (by date)
+- Query cache for frequently accessed data
+- Connection pooling from all services
+
+---
+
+## Docker & CI/CD
+
+### Multi-Architecture Builds
+All containers built for **linux/amd64** and **linux/arm64** using Docker buildx
+
+### GitHub Actions Workflow (example for testServer)
+```yaml
+name: Build testServer
+
+on:
+  push:
+    branches: [main]
+    tags: ['v*']
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v3
+      - uses: docker/setup-buildx-action@v2
+      - uses: docker/login-action@v2
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Docker meta
+        id: meta
+        uses: docker/metadata-action@v4
+        with:
+          images: ghcr.io/${{ github.repository }}/testserver
+          tags: |
+            type=ref,event=branch
+            type=ref,event=tag
+            type=raw,value=latest,enable=${{ github.ref == 'refs/heads/main' }}
+            type=raw,value=alpha,enable=${{ github.ref != 'refs/heads/main' && !startsWith(github.ref, 'refs/tags/') }}
+
+      - name: Build and push
+        uses: docker/build-push-action@v4
+        with:
+          context: ./testServer
+          platforms: linux/amd64,linux/arm64
+          push: true
+          tags: ${{ steps.meta.outputs.tags }}
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+```
+
+### Tag Strategy
+- **main branch** → `latest` tag
+- **release tags** (v1.0.0) → version tag (1.0.0) + latest
+- **other branches** → `alpha` tag
+
+---
+
+## Environment Variables
+
+### testServer
+- `MANAGER_KEY`: 64-char server-to-server auth key
+- `MANAGER_URL`: managerServer gRPC endpoint
+- `DB_HOST`, `DB_PORT`, `DB_USER`, `DB_PASS`, `DB_NAME`: MariaDB Galera connection
+- `AUTH_ENABLED`: true/false (anonymous mode)
+- `LOG_LEVEL`: debug/info/warn/error
+- `MAX_CONCURRENT_TESTS`: default 100
+
+### managerServer
+- `MANAGER_KEY`: 64-char server-to-server auth key
+- `SECRET_KEY`: Flask session secret
+- `JWT_SECRET`: JWT signing key
+- `DB_HOST`, `DB_PORT`, `DB_USER`, `DB_PASS`, `DB_NAME`: MariaDB Galera connection
+- `MFA_REQUIRED`: true/false (global setting)
+
+### webClient
+- `MANAGER_URL`: managerServer API endpoint
+- `TESTSERVER_URL`: testServer API endpoint
+- `AUTH_ENABLED`: true/false
+
+### containerClient
+- `AUTH_TYPE`, `AUTH_JWT`, `AUTH_USER`, `AUTH_PASS`, `AUTH_APIKEY`
+- `MANAGER_URL`, `TEST_SERVER_URL`
+- `RUN_SECONDS`, `ENABLE_*_TEST`
+- `DEVICE_SERIAL`, `DEVICE_HOSTNAME`
+
+---
+
+## Project Structure
+
+```
+WaddlePerf/
+├── testServer/              # Go test execution server
+│   ├── cmd/
+│   ├── internal/
+│   ├── proto/               # gRPC definitions
+│   ├── Dockerfile
+│   └── .github/workflows/
+├── managerServer/           # Flask + React management portal
+│   ├── api/                 # Flask backend
+│   ├── frontend/            # React frontend
+│   ├── proto/               # gRPC definitions
+│   ├── Dockerfile.api
+│   ├── Dockerfile.frontend
+│   └── .github/workflows/
+├── webClient/               # Flask + React test client
+│   ├── api/
+│   ├── frontend/
+│   ├── Dockerfile
+│   └── .github/workflows/
+├── containerClient/         # Python container client
+│   ├── client.py
+│   ├── tests/
+│   ├── Dockerfile
+│   └── .github/workflows/
+├── goClient/                # Go thick client
+│   ├── cmd/
+│   ├── internal/
+│   ├── config/
+│   ├── .github/workflows/
+│   └── waddleperf-config.example.yaml
+├── database/                # MariaDB schema
+│   ├── schema.sql
+│   ├── migrations/
+│   └── seeds/
+├── docker-compose.dev.yml   # Local development
+└── .env.example
+```
+
+---
+
+## Summary
+
+This architecture provides:
+- ✅ Stateless, horizontally scalable components (ALL state in MariaDB Galera)
+- ✅ Multi-protocol network testing (HTTP/TCP/UDP/ICMP)
+- ✅ 100+ concurrent testers per testServer node
+- ✅ Organization-based user delegation
+- ✅ Role-based access control (5 roles)
+- ✅ MFA support (Google Authenticator)
+- ✅ Real-time test visualization
+- ✅ Automated testing (cron-like scheduling)
+- ✅ Cross-platform clients (macOS/Windows/Linux)
+- ✅ Multi-architecture Docker builds (ARM64/AMD64)
+- ✅ High-availability database (MariaDB Galera - ONLY persistence layer)
+- ✅ No placeholders - complete implementations
+- ✅ Security best practices (input validation, TLS, non-root containers)
+- ✅ Performance optimizations (multi-threading, connection pooling)

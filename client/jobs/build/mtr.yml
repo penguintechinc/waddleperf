@@ -1,6 +1,0 @@
----
-- name: Install MTR
-  ansible.builtin.apt:
-    pkg:
-      - mtr
-    state: latest

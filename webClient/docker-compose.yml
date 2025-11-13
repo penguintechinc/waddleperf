@@ -1,0 +1,70 @@
+version: '3.8'
+
+services:
+  # Flask API Backend
+  api:
+    build:
+      context: .
+      dockerfile: Dockerfile.api
+    ports:
+      - "5000:5000"
+    environment:
+      - SECRET_KEY=${SECRET_KEY:-dev-secret-key-change-in-production}
+      - DEBUG=${DEBUG:-false}
+      - FRONTEND_URL=${FRONTEND_URL:-http://localhost:3000}
+      - MANAGER_URL=${MANAGER_URL:-http://localhost:5001}
+      - TESTSERVER_URL=${TESTSERVER_URL:-http://localhost:8080}
+      - AUTH_ENABLED=${AUTH_ENABLED:-true}
+      - DB_HOST=${DB_HOST:-mariadb}
+      - DB_PORT=${DB_PORT:-3306}
+      - DB_USER=${DB_USER:-waddleperf}
+      - DB_PASS=${DB_PASS:-waddleperf}
+      - DB_NAME=${DB_NAME:-waddleperf}
+    depends_on:
+      mariadb:
+        condition: service_healthy
+    restart: unless-stopped
+    networks:
+      - waddleperf
+
+  # React Frontend
+  frontend:
+    build:
+      context: .
+      dockerfile: Dockerfile.frontend
+    ports:
+      - "3000:3000"
+    environment:
+      - VITE_API_URL=${VITE_API_URL:-http://localhost:5000}
+    restart: unless-stopped
+    networks:
+      - waddleperf
+
+  # MariaDB Database
+  mariadb:
+    image: mariadb:11
+    ports:
+      - "3306:3306"
+    environment:
+      - MYSQL_ROOT_PASSWORD=${DB_ROOT_PASSWORD:-root}
+      - MYSQL_DATABASE=${DB_NAME:-waddleperf}
+      - MYSQL_USER=${DB_USER:-waddleperf}
+      - MYSQL_PASSWORD=${DB_PASS:-waddleperf}
+    volumes:
+      - mariadb_data:/var/lib/mysql
+      - ./init.sql:/docker-entrypoint-initdb.d/init.sql:ro
+    healthcheck:
+      test: ["CMD", "healthcheck.sh", "--connect", "--innodb_initialized"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    restart: unless-stopped
+    networks:
+      - waddleperf
+
+volumes:
+  mariadb_data:
+
+networks:
+  waddleperf:
+    driver: bridge

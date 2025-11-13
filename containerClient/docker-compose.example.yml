@@ -1,0 +1,67 @@
+version: '3.8'
+
+services:
+  waddleperf-client:
+    image: ghcr.io/penguintechinc/waddleperf/containerclient:latest
+    container_name: waddleperf-client
+    restart: unless-stopped
+
+    # Required for ICMP tests
+    cap_add:
+      - NET_RAW
+      - NET_ADMIN
+
+    environment:
+      # Authentication
+      - AUTH_TYPE=apikey
+      - AUTH_APIKEY=${WADDLEPERF_API_KEY}
+      # Or use JWT:
+      # - AUTH_TYPE=jwt
+      # - AUTH_JWT=${WADDLEPERF_JWT}
+      # Or use user/pass:
+      # - AUTH_TYPE=userpass
+      # - AUTH_USER=${WADDLEPERF_USER}
+      # - AUTH_PASS=${WADDLEPERF_PASS}
+
+      # Server URLs
+      - MANAGER_URL=https://manager.example.com
+      - TEST_SERVER_URL=https://tests.example.com
+
+      # Scheduling (run every 5 minutes)
+      - RUN_SECONDS=300
+
+      # Enable/disable tests
+      - ENABLE_HTTP_TEST=true
+      - ENABLE_TCP_TEST=true
+      - ENABLE_UDP_TEST=true
+      - ENABLE_ICMP_TEST=true
+
+      # Test targets (comma-separated)
+      - HTTP_TARGETS=https://www.google.com,https://example.com,https://github.com
+      - TCP_TARGETS=www.google.com:443,ssh://server.example.com:22
+      - UDP_TARGETS=dns://www.google.com,dns://example.com
+      - ICMP_TARGETS=8.8.8.8,1.1.1.1,www.google.com
+
+      # Device info (auto-detected if not set)
+      # - DEVICE_SERIAL=my-device-001
+      # - DEVICE_HOSTNAME=my-device
+
+    # Optional: mount config file
+    # volumes:
+    #   - ./config.json:/config/config.json:ro
+
+    # Optional: override command
+    # command: ["--config-file", "/config/config.json"]
+
+    networks:
+      - waddleperf
+
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"
+
+networks:
+  waddleperf:
+    driver: bridge

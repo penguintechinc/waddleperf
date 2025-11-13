@@ -112,3 +112,5 @@ go-client/test-dist/
 .vercel/
 
 *.log
+
+.REQUIREMENTS
