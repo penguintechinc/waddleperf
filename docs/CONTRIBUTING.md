@@ -1,6 +1,6 @@
 # Contributing to WaddlePerf
 
-**Version**: 2.0
+**Version**: 4.0.0
 **Last Updated**: November 12, 2025
 
 Thank you for your interest in contributing to WaddlePerf! This document provides guidelines and instructions for contributing to the project.

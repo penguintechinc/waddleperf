@@ -1,6 +1,6 @@
 # WaddlePerf Installation Guide
 
-**Version**: 2.0
+**Version**: 4.0.0
 **Last Updated**: November 12, 2025
 
 ## Table of Contents
@@ -1030,7 +1030,7 @@ docker exec waddleperf-manager-api python manage.py db upgrade
 kubectl apply -f waddleperf-deployment.yaml
 
 # Or use rolling update
-kubectl set image deployment/testserver testserver=ghcr.io/penguincloud/waddleperf-testserver:v2.0 -n waddleperf
+kubectl set image deployment/testserver testserver=ghcr.io/penguincloud/waddleperf-testserver:v4.0.0 -n waddleperf
 ```
 
 ### Bare Metal Upgrade

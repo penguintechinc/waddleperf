@@ -1,6 +1,6 @@
 # WaddlePerf API Documentation
 
-**Version**: 2.0
+**Version**: 4.0.0
 **Last Updated**: November 12, 2025
 
 ## Table of Contents

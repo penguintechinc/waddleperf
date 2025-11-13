@@ -9,7 +9,7 @@
 <img src="waddleperf-penguin.svg" alt="WaddlePerf Northern Rockhopper Penguin Mascot" width="200" height="200">
 
 [![License](https://img.shields.io/badge/license-Proprietary-blue.svg)](docs/LICENSE.md)
-[![Version](https://img.shields.io/badge/version-2.0-green.svg)](https://github.com/penguintechinc/WaddlePerf/releases)
+[![Version](https://img.shields.io/badge/version-4.0.0-green.svg)](https://github.com/penguintechinc/WaddlePerf/releases)
 [![Docker](https://img.shields.io/badge/docker-compose-blue.svg)](docker-compose.yml)
 
 </div>
@@ -80,7 +80,7 @@ This can be an endpoint testing it's internet connectivity, testing latency betw
 
 ## Architecture
 
-WaddlePerf 2.0 uses a modern, containerized architecture with multiple components:
+WaddlePerf 4.x uses a modern, containerized architecture with multiple components:
 
 ### Components
 
