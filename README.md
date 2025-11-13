@@ -29,11 +29,54 @@ This can be an endpoint testing it's internet connectivity, testing latency betw
 - **Centralized Management**: User authentication, API keys, organization units
 - **Historical Analytics**: Database-backed results storage and analysis
 
-### Web Client Interface
+## Screenshots
 
-![Network Testing](docs/screenshots/webclient-networktest-options.png)
+<div align="center">
 
-![Speed Test Results](docs/screenshots/webclient-speedtest-results.png)
+### Network Testing Interface
+<a href="docs/screenshots/webclient-networktest-options.png" target="_blank">
+  <img src="docs/screenshots/webclient-networktest-options.png" alt="Network Testing Interface" width="800">
+</a>
+
+*Configure and run HTTP, TCP, UDP, and ICMP tests with real-time results*
+
+---
+
+### Speed Test - Running
+<a href="docs/screenshots/webclient-speedtest-running.png" target="_blank">
+  <img src="docs/screenshots/webclient-speedtest-running.png" alt="Speed Test Running" width="800">
+</a>
+
+*Real-time bandwidth testing with live speed measurements*
+
+---
+
+### Speed Test - Results
+<a href="docs/screenshots/webclient-speedtest-results.png" target="_blank">
+  <img src="docs/screenshots/webclient-speedtest-results.png" alt="Speed Test Results" width="800">
+</a>
+
+*Comprehensive results showing download, upload, latency, and jitter*
+
+---
+
+### Download Test - Options
+<a href="docs/screenshots/webclient-downloadtest-options.png" target="_blank">
+  <img src="docs/screenshots/webclient-downloadtest-options.png" alt="Download Test Options" width="800">
+</a>
+
+*Select file size for sustained download performance testing*
+
+---
+
+### Download Test - Results
+<a href="docs/screenshots/webclient-downloadtest-results.png" target="_blank">
+  <img src="docs/screenshots/webclient-downloadtest-results.png" alt="Download Test Results" width="800">
+</a>
+
+*Detailed download metrics including average and peak speeds*
+
+</div>
 
 ## AUTOPERF
 All tests are given a tier number of 1-3
