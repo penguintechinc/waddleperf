@@ -1,23 +1,23 @@
-name: Build webClient
+name: Build managerServer
 
 on:
   push:
     branches: [main, 4.x]
     tags: ['v*']
     paths:
-      - 'webClient/**'
-      - '.github/workflows/webclient.yml'
+      - 'managerServer/**'
+      - '.github/workflows/managerserver.yml'
   pull_request:
     branches: [main, 4.x]
     paths:
-      - 'webClient/**'
-      - '.github/workflows/webclient.yml'
+      - 'managerServer/**'
+      - '.github/workflows/managerserver.yml'
   workflow_dispatch:
 
 env:
   REGISTRY_GHCR: ghcr.io
   REGISTRY_DOCKER: docker.io
-  IMAGE_NAME: webclient
+  IMAGE_NAME: managerserver
 
 jobs:
   test-api:
@@ -33,27 +33,27 @@ jobs:
         with:
           python-version: '3.13'
           cache: 'pip'
-          cache-dependency-path: webClient/api/requirements.txt
+          cache-dependency-path: managerServer/api/requirements.txt
 
       - name: Install dependencies
-        working-directory: webClient/api
+        working-directory: managerServer/api
         run: |
           python -m pip install --upgrade pip
           pip install -r requirements.txt
           pip install pytest pytest-cov flake8
 
       - name: Lint with flake8
-        working-directory: webClient/api
+        working-directory: managerServer/api
         run: |
           # Stop the build if there are Python syntax errors or undefined names
           flake8 . --count --select=E9,F63,F7,F82 --show-source --statistics
           # Exit-zero treats all errors as warnings
           flake8 . --count --exit-zero --max-complexity=10 --max-line-length=127 --statistics
 
-      - name: Type check (basic)
-        working-directory: webClient/api
+      - name: Type check
+        working-directory: managerServer/api
         run: |
-          python -m py_compile app.py wsgi.py
+          python -m py_compile app.py
 
   test-frontend:
     name: Test React Frontend
@@ -68,22 +68,22 @@ jobs:
         with:
           node-version: '20'
           cache: 'npm'
-          cache-dependency-path: webClient/frontend/package-lock.json
+          cache-dependency-path: managerServer/frontend/package-lock.json
 
       - name: Install dependencies
-        working-directory: webClient/frontend
+        working-directory: managerServer/frontend
         run: npm ci
 
       - name: Lint
-        working-directory: webClient/frontend
+        working-directory: managerServer/frontend
         run: npm run lint || true
 
       - name: Type check
-        working-directory: webClient/frontend
+        working-directory: managerServer/frontend
         run: npm run type-check
 
       - name: Build
-        working-directory: webClient/frontend
+        working-directory: managerServer/frontend
         run: npm run build
 
   build:
@@ -138,7 +138,7 @@ jobs:
       - name: Build and push Docker image
         uses: docker/build-push-action@v5
         with:
-          context: ./webClient
+          context: ./managerServer
           platforms: linux/amd64,linux/arm64
           push: true
           tags: ${{ steps.meta.outputs.tags }}
