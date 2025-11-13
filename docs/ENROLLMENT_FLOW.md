@@ -61,7 +61,7 @@ def enroll():
         'device_os': 'Linux',  # Detect actual OS
         'device_os_version': '6.1.0',  # Detect actual version
         'client_type': 'containerClient',  # or 'goClient'
-        'client_version': '2.0.0'
+        'client_version': '4.0.0'
     })
 
     if response.status_code in [200, 201]:
@@ -258,7 +258,7 @@ Content-Type: application/json
   "device_os": "Linux",
   "device_os_version": "6.1.0",
   "client_type": "containerClient",
-  "client_version": "2.0.0"
+  "client_version": "4.0.0"
 }
 
 Response 201:
