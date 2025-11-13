@@ -89,7 +89,10 @@ WaddlePerf 2.0 uses a modern, containerized architecture with multiple component
 - **webClient** (Python/Flask + React) - Browser-based testing interface
 - **containerClient** (Python) - Automated container-based testing
 - **goClient** (Go) - Cross-platform desktop client (in development)
-- **MariaDB** - Centralized database for user management and test results
+- **MariaDB Galera Cluster** - High-availability database with multi-master replication
+  - Supports multi-write nodes for active-active configuration
+  - Automatic failover and synchronous replication
+  - Horizontal scaling for increased capacity
 
 ### Test Types
 
@@ -107,6 +110,27 @@ All tests provide:
 - Detailed timing breakdowns (DNS, TCP connect, TLS handshake, etc.)
 - Packet loss and jitter measurements
 - Historical result storage and analysis
+
+### High Availability
+
+WaddlePerf is designed for enterprise-grade reliability:
+
+- **MariaDB Galera Cluster Support**
+  - Multi-master replication with active-active writes
+  - Synchronous replication ensures zero data loss
+  - Automatic node failover with no manual intervention
+  - Scales horizontally by adding more nodes
+
+- **Distributed Architecture**
+  - Multiple testServer instances can run in parallel
+  - Load balancing across managerServer nodes
+  - Containerized components for easy orchestration
+  - Kubernetes-ready deployment manifests
+
+- **Data Persistence**
+  - Persistent volumes for database storage
+  - Optional S3 integration for long-term archival
+  - Backup and restore procedures documented
 
 ## Quick Start
 
