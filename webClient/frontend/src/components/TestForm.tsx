@@ -1,5 +1,19 @@
 import { useState, FormEvent } from 'react'
 import './TestForm.css'
+import {
+  validateTarget,
+  validateDNSQuery,
+  validatePort,
+  validateTimeout,
+  validateCount,
+  validateHTTPProtocol,
+  validateTCPProtocol,
+  validateUDPProtocol,
+  validateICMPProtocol,
+  sanitizeString,
+  MAX_TARGET_LENGTH,
+  MAX_QUERY_LENGTH,
+} from '../utils/validation'
 
 interface TestFormProps {
   onTestStart: (testData: {
@@ -9,6 +23,7 @@ interface TestFormProps {
     timeout?: number
     count?: number
     protocol_detail?: string
+    query?: string
   }) => void
   isRunning: boolean
 }
@@ -20,11 +35,13 @@ function TestForm({ onTestStart, isRunning }: TestFormProps) {
   const [timeout, setTimeout] = useState('30')
   const [count, setCount] = useState('10')
   const [protocolDetail, setProtocolDetail] = useState('')
+  const [dnsQuery, setDnsQuery] = useState('google.com') // For UDP DNS queries
+  const [validationError, setValidationError] = useState<string>('')
 
   const protocolOptions: Record<string, string[]> = {
     http: ['HTTP/1.1', 'HTTP/2', 'HTTP/3'],
     tcp: ['Raw TCP', 'SSH', 'TLS'],
-    udp: ['Raw UDP', 'DNS', 'TLS'],
+    udp: [], // WebClient only supports DNS for UDP
     icmp: [],
   }
 
@@ -38,23 +55,93 @@ function TestForm({ onTestStart, isRunning }: TestFormProps) {
   const handleTestTypeChange = (newType: string) => {
     setTestType(newType)
     setPort(defaultPorts[newType] || '')
-    setProtocolDetail('')
+    // Set UDP to DNS by default
+    if (newType === 'udp') {
+      setProtocolDetail('DNS')
+      setPort('53')
+    } else {
+      setProtocolDetail('')
+    }
   }
+
 
   const handleSubmit = (e: FormEvent) => {
     e.preventDefault()
+    setValidationError('')
 
-    if (!target.trim()) {
+    // Validate target
+    const targetResult = validateTarget(target)
+    if (!targetResult.valid) {
+      setValidationError(targetResult.error || 'Invalid target')
       return
     }
 
-    const testData = {
+    // Validate protocol
+    let protocolResult
+    switch (testType) {
+      case 'http':
+        protocolResult = validateHTTPProtocol(protocolDetail)
+        break
+      case 'tcp':
+        protocolResult = validateTCPProtocol(protocolDetail)
+        break
+      case 'udp':
+        protocolResult = validateUDPProtocol(protocolDetail || 'DNS')
+        break
+      case 'icmp':
+        protocolResult = validateICMPProtocol(protocolDetail)
+        break
+    }
+    if (protocolResult && !protocolResult.valid) {
+      setValidationError(protocolResult.error || 'Invalid protocol')
+      return
+    }
+
+    // Validate port
+    if (port) {
+      const portResult = validatePort(port)
+      if (!portResult.valid) {
+        setValidationError(portResult.error || 'Invalid port')
+        return
+      }
+    }
+
+    // Validate timeout
+    const timeoutResult = validateTimeout(timeout)
+    if (!timeoutResult.valid) {
+      setValidationError(timeoutResult.error || 'Invalid timeout')
+      return
+    }
+
+    // Validate count
+    const countResult = validateCount(count)
+    if (!countResult.valid) {
+      setValidationError(countResult.error || 'Invalid count')
+      return
+    }
+
+    // Validate DNS query for UDP
+    if (testType === 'udp') {
+      const queryResult = validateDNSQuery(dnsQuery)
+      if (!queryResult.valid) {
+        setValidationError(queryResult.error || 'Invalid DNS query')
+        return
+      }
+    }
+
+    // Sanitize all inputs before sending
+    const testData: any = {
       test_type: testType,
-      target: target.trim(),
+      target: sanitizeString(target, MAX_TARGET_LENGTH),
       port: port ? parseInt(port, 10) : undefined,
       timeout: parseInt(timeout, 10),
       count: parseInt(count, 10),
-      protocol_detail: protocolDetail || undefined,
+      protocol_detail: protocolDetail ? sanitizeString(protocolDetail, 50) : undefined,
+    }
+
+    // For UDP DNS tests, add the query parameter
+    if (testType === 'udp' && dnsQuery.trim()) {
+      testData.query = sanitizeString(dnsQuery, MAX_QUERY_LENGTH)
     }
 
     console.log('[TestForm] Submitting test:', testData)
@@ -69,6 +156,12 @@ function TestForm({ onTestStart, isRunning }: TestFormProps) {
       </div>
 
       <form onSubmit={handleSubmit} className="test-form">
+        {validationError && (
+          <div className="error-box" style={{ marginBottom: '1rem', padding: '0.75rem', backgroundColor: 'var(--error-bg, #fee)', border: '1px solid var(--error-border, #f88)', borderRadius: '4px', color: 'var(--error-text, #c00)' }}>
+            <strong>Validation Error:</strong> {validationError}
+          </div>
+        )}
+
         <div className="form-group">
           <label htmlFor="test-type">Test Type</label>
           <div className="test-type-buttons">
@@ -105,39 +198,88 @@ function TestForm({ onTestStart, isRunning }: TestFormProps) {
           </div>
         )}
 
-        <div className="form-group">
-          <label htmlFor="target">Target Host</label>
-          <input
-            type="text"
-            id="target"
-            value={target}
-            onChange={(e) => setTarget(e.target.value)}
-            placeholder={
-              testType === 'http'
-                ? 'example.com or https://example.com'
-                : testType === 'icmp'
-                ? '8.8.8.8 or example.com'
-                : 'hostname or IP address'
-            }
-            required
-            disabled={isRunning}
-          />
-        </div>
+        {testType === 'udp' ? (
+          <>
+            <div className="form-group">
+              <label htmlFor="target">Target DNS Server</label>
+              <input
+                type="text"
+                id="target"
+                value={target}
+                onChange={(e) => setTarget(e.target.value)}
+                placeholder="8.8.8.8 or dns.google.com"
+                required
+                disabled={isRunning}
+              />
+            </div>
 
-        {testType !== 'icmp' && (
-          <div className="form-group">
-            <label htmlFor="port">Port</label>
-            <input
-              type="number"
-              id="port"
-              value={port}
-              onChange={(e) => setPort(e.target.value)}
-              placeholder="Auto-detect"
-              min="1"
-              max="65535"
-              disabled={isRunning}
-            />
-          </div>
+            <div className="form-group">
+              <label htmlFor="dns-query">DNS Query (hostname to lookup)</label>
+              <input
+                type="text"
+                id="dns-query"
+                value={dnsQuery}
+                onChange={(e) => setDnsQuery(e.target.value)}
+                placeholder="google.com"
+                required
+                disabled={isRunning}
+              />
+            </div>
+
+            <div className="form-group">
+              <label htmlFor="port">Port</label>
+              <input
+                type="number"
+                id="port"
+                value="53"
+                onChange={(e) => setPort(e.target.value)}
+                min="1"
+                max="65535"
+                disabled={true}
+                readOnly
+              />
+              <small style={{ color: 'var(--text-secondary)', fontSize: '0.85em', marginTop: '4px', display: 'block' }}>
+                DNS uses port 53
+              </small>
+            </div>
+          </>
+        ) : (
+          <>
+            <div className="form-group">
+              <label htmlFor="target">Target Host</label>
+              <input
+                type="text"
+                id="target"
+                value={target}
+                onChange={(e) => setTarget(e.target.value)}
+                placeholder={
+                  testType === 'http'
+                    ? 'example.com or https://example.com'
+                    : testType === 'icmp'
+                    ? '8.8.8.8 or example.com'
+                    : 'hostname or IP address'
+                }
+                required
+                disabled={isRunning}
+              />
+            </div>
+
+            {testType !== 'icmp' && (
+              <div className="form-group">
+                <label htmlFor="port">Port</label>
+                <input
+                  type="number"
+                  id="port"
+                  value={port}
+                  onChange={(e) => setPort(e.target.value)}
+                  placeholder="Auto-detect"
+                  min="1"
+                  max="65535"
+                  disabled={isRunning}
+                />
+              </div>
+            )}
+          </>
         )}
 
         <div className="form-row">

@@ -45,27 +45,35 @@ function TestResults({ result }: TestResultsProps) {
           <div className="result-value">{result.target_ip || 'N/A'}</div>
         </div>
 
-        <div className="result-card highlight">
-          <div className="result-label">Latency</div>
-          <div className="result-value primary">{formatValue(result.latency_ms, 'ms')}</div>
-        </div>
-
-        <div className="result-card highlight">
-          <div className="result-label">Throughput</div>
-          <div className="result-value primary">{formatValue(result.throughput_mbps, 'Mbps')}</div>
-        </div>
-
-        <div className="result-card highlight">
-          <div className="result-label">Jitter</div>
-          <div className="result-value primary">{formatValue(result.jitter_ms, 'ms')}</div>
-        </div>
-
-        <div className="result-card highlight">
-          <div className="result-label">Packet Loss</div>
-          <div className="result-value primary">
-            {formatValue(result.packet_loss_percent, '%')}
+        {result.latency_ms !== undefined && result.latency_ms !== null && (
+          <div className="result-card highlight">
+            <div className="result-label">Latency</div>
+            <div className="result-value primary">{formatValue(result.latency_ms, 'ms')}</div>
           </div>
-        </div>
+        )}
+
+        {result.throughput_mbps !== undefined && result.throughput_mbps !== null && (
+          <div className="result-card highlight">
+            <div className="result-label">Throughput</div>
+            <div className="result-value primary">{formatValue(result.throughput_mbps, 'Mbps')}</div>
+          </div>
+        )}
+
+        {result.jitter_ms !== undefined && result.jitter_ms !== null && (
+          <div className="result-card highlight">
+            <div className="result-label">Jitter</div>
+            <div className="result-value primary">{formatValue(result.jitter_ms, 'ms')}</div>
+          </div>
+        )}
+
+        {result.packet_loss_percent !== undefined && result.packet_loss_percent !== null && (
+          <div className="result-card highlight">
+            <div className="result-label">Packet Loss</div>
+            <div className="result-value primary">
+              {formatValue(result.packet_loss_percent, '%')}
+            </div>
+          </div>
+        )}
       </div>
 
       {result.raw_results && Object.keys(result.raw_results).length > 0 && (

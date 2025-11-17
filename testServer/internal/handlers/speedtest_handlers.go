@@ -125,3 +125,55 @@ func (h *TestHandlers) SpeedTestInfoHandler(w http.ResponseWriter, r *http.Reque
 		"max_streams":           32,
 	})
 }
+
+// SpeedTestResultRequest represents a completed speedtest result from the client
+type SpeedTestResultRequest struct {
+	DownloadMbps float64 `json:"download_mbps"`
+	UploadMbps   float64 `json:"upload_mbps"`
+	LatencyMS    float64 `json:"latency_ms"`
+	JitterMS     float64 `json:"jitter_ms"`
+	ServerURL    string  `json:"server_url"`
+}
+
+// SpeedTestResultHandler saves speedtest results to the database
+func (h *TestHandlers) SpeedTestResultHandler(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodPost {
+		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
+		return
+	}
+
+	var req SpeedTestResultRequest
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		http.Error(w, "Invalid request body", http.StatusBadRequest)
+		return
+	}
+
+	// Save to database using saveTestResult helper
+	// For speedtest, we'll use download as throughput and set appropriate metrics
+	if err := h.saveSpeedTestResult(r, req); err != nil {
+		log.Printf("Failed to save speedtest result: %v", err)
+		http.Error(w, "Failed to save result", http.StatusInternalServerError)
+		return
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	w.Header().Set("Access-Control-Allow-Origin", "*")
+	json.NewEncoder(w).Encode(map[string]interface{}{
+		"success": true,
+		"message": "Speedtest result saved successfully",
+	})
+}
+
+// saveSpeedTestResult is a helper to save speedtest results
+func (h *TestHandlers) saveSpeedTestResult(r *http.Request, req SpeedTestResultRequest) error {
+	// Build result data that matches the generic saveTestResult expectations
+	resultData := map[string]interface{}{
+		"latency_ms":    req.LatencyMS,
+		"throughput":    req.DownloadMbps,
+		"download_mbps": req.DownloadMbps,
+		"upload_mbps":   req.UploadMbps,
+		"jitter_ms":     req.JitterMS,
+	}
+
+	return h.saveTestResult(r, "speedtest", "download_upload", req.ServerURL, resultData)
+}

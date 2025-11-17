@@ -8,6 +8,7 @@ import (
 	"github.com/penguincloud/waddleperf/testserver/internal/auth"
 	"github.com/penguincloud/waddleperf/testserver/internal/database"
 	"github.com/penguincloud/waddleperf/testserver/internal/protocols"
+	"github.com/penguincloud/waddleperf/testserver/internal/validation"
 )
 
 type TestHandlers struct {
@@ -24,6 +25,41 @@ func (h *TestHandlers) HTTPTestHandler(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "Invalid request body", http.StatusBadRequest)
 		return
 	}
+
+	// Validate inputs
+	if err := validation.ValidateTarget(req.Target); err != nil {
+		log.Printf("HTTP test validation failed: %v", err)
+		http.Error(w, err.Error(), http.StatusBadRequest)
+		return
+	}
+	if err := validation.ValidateHTTPProtocol(req.Protocol); err != nil {
+		log.Printf("HTTP test validation failed: %v", err)
+		http.Error(w, err.Error(), http.StatusBadRequest)
+		return
+	}
+	if err := validation.ValidateHTTPProtocol(req.ProtocolDetail); err != nil {
+		log.Printf("HTTP test validation failed: %v", err)
+		http.Error(w, err.Error(), http.StatusBadRequest)
+		return
+	}
+	if err := validation.ValidateHTTPMethod(req.Method); err != nil {
+		log.Printf("HTTP test validation failed: %v", err)
+		http.Error(w, err.Error(), http.StatusBadRequest)
+		return
+	}
+	if req.Timeout > 0 {
+		if err := validation.ValidateTimeout(req.Timeout); err != nil {
+			log.Printf("HTTP test validation failed: %v", err)
+			http.Error(w, err.Error(), http.StatusBadRequest)
+			return
+		}
+	}
+
+	// Sanitize inputs
+	req.Target = validation.SanitizeString(req.Target, validation.MaxTargetLength)
+	req.Protocol = validation.SanitizeString(req.Protocol, validation.MaxProtocolLength)
+	req.ProtocolDetail = validation.SanitizeString(req.ProtocolDetail, validation.MaxProtocolLength)
+	req.Method = validation.SanitizeString(req.Method, validation.MaxMethodLength)
 
 	result, err := protocols.TestHTTP(req)
 	if err != nil {
@@ -47,6 +83,42 @@ func (h *TestHandlers) TCPTestHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	// Validate inputs
+	if err := validation.ValidateTarget(req.Target); err != nil {
+		log.Printf("TCP test validation failed: %v", err)
+		http.Error(w, err.Error(), http.StatusBadRequest)
+		return
+	}
+	if err := validation.ValidateTCPProtocol(req.Protocol); err != nil {
+		log.Printf("TCP test validation failed: %v", err)
+		http.Error(w, err.Error(), http.StatusBadRequest)
+		return
+	}
+	if err := validation.ValidateTCPProtocol(req.ProtocolDetail); err != nil {
+		log.Printf("TCP test validation failed: %v", err)
+		http.Error(w, err.Error(), http.StatusBadRequest)
+		return
+	}
+	if req.Port > 0 {
+		if err := validation.ValidatePort(req.Port); err != nil {
+			log.Printf("TCP test validation failed: %v", err)
+			http.Error(w, err.Error(), http.StatusBadRequest)
+			return
+		}
+	}
+	if req.Timeout > 0 {
+		if err := validation.ValidateTimeout(req.Timeout); err != nil {
+			log.Printf("TCP test validation failed: %v", err)
+			http.Error(w, err.Error(), http.StatusBadRequest)
+			return
+		}
+	}
+
+	// Sanitize inputs
+	req.Target = validation.SanitizeString(req.Target, validation.MaxTargetLength)
+	req.Protocol = validation.SanitizeString(req.Protocol, validation.MaxProtocolLength)
+	req.ProtocolDetail = validation.SanitizeString(req.ProtocolDetail, validation.MaxProtocolLength)
+
 	result, err := protocols.TestTCP(req)
 	if err != nil {
 		log.Printf("TCP test failed: %v", err)
@@ -69,6 +141,48 @@ func (h *TestHandlers) UDPTestHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	// Validate inputs
+	if err := validation.ValidateTarget(req.Target); err != nil {
+		log.Printf("UDP test validation failed: %v", err)
+		http.Error(w, err.Error(), http.StatusBadRequest)
+		return
+	}
+	if err := validation.ValidateUDPProtocol(req.Protocol); err != nil {
+		log.Printf("UDP test validation failed: %v", err)
+		http.Error(w, err.Error(), http.StatusBadRequest)
+		return
+	}
+	if err := validation.ValidateUDPProtocol(req.ProtocolDetail); err != nil {
+		log.Printf("UDP test validation failed: %v", err)
+		http.Error(w, err.Error(), http.StatusBadRequest)
+		return
+	}
+	if err := validation.ValidateDNSQuery(req.Query); err != nil {
+		log.Printf("UDP test validation failed: %v", err)
+		http.Error(w, err.Error(), http.StatusBadRequest)
+		return
+	}
+	if req.Port > 0 {
+		if err := validation.ValidatePort(req.Port); err != nil {
+			log.Printf("UDP test validation failed: %v", err)
+			http.Error(w, err.Error(), http.StatusBadRequest)
+			return
+		}
+	}
+	if req.Timeout > 0 {
+		if err := validation.ValidateTimeout(req.Timeout); err != nil {
+			log.Printf("UDP test validation failed: %v", err)
+			http.Error(w, err.Error(), http.StatusBadRequest)
+			return
+		}
+	}
+
+	// Sanitize inputs
+	req.Target = validation.SanitizeString(req.Target, validation.MaxTargetLength)
+	req.Protocol = validation.SanitizeString(req.Protocol, validation.MaxProtocolLength)
+	req.ProtocolDetail = validation.SanitizeString(req.ProtocolDetail, validation.MaxProtocolLength)
+	req.Query = validation.SanitizeString(req.Query, validation.MaxQueryLength)
+
 	result, err := protocols.TestUDP(req)
 	if err != nil {
 		log.Printf("UDP test failed: %v", err)
@@ -90,6 +204,42 @@ func (h *TestHandlers) ICMPTestHandler(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "Invalid request body", http.StatusBadRequest)
 		return
 	}
+
+	// Validate inputs
+	if err := validation.ValidateTarget(req.Target); err != nil {
+		log.Printf("ICMP test validation failed: %v", err)
+		http.Error(w, err.Error(), http.StatusBadRequest)
+		return
+	}
+	if err := validation.ValidateICMPProtocol(req.Protocol); err != nil {
+		log.Printf("ICMP test validation failed: %v", err)
+		http.Error(w, err.Error(), http.StatusBadRequest)
+		return
+	}
+	if err := validation.ValidateICMPProtocol(req.ProtocolDetail); err != nil {
+		log.Printf("ICMP test validation failed: %v", err)
+		http.Error(w, err.Error(), http.StatusBadRequest)
+		return
+	}
+	if req.Count > 0 {
+		if err := validation.ValidateCount(req.Count); err != nil {
+			log.Printf("ICMP test validation failed: %v", err)
+			http.Error(w, err.Error(), http.StatusBadRequest)
+			return
+		}
+	}
+	if req.Timeout > 0 {
+		if err := validation.ValidateTimeout(req.Timeout); err != nil {
+			log.Printf("ICMP test validation failed: %v", err)
+			http.Error(w, err.Error(), http.StatusBadRequest)
+			return
+		}
+	}
+
+	// Sanitize inputs
+	req.Target = validation.SanitizeString(req.Target, validation.MaxTargetLength)
+	req.Protocol = validation.SanitizeString(req.Protocol, validation.MaxProtocolLength)
+	req.ProtocolDetail = validation.SanitizeString(req.ProtocolDetail, validation.MaxProtocolLength)
 
 	result, err := protocols.TestICMP(req)
 	if err != nil {
@@ -167,6 +317,22 @@ func (h *TestHandlers) saveTestResult(r *http.Request, testType, protocolDetail,
 		packetLoss = &v.PacketLossPercent
 		rawResults["packets_sent"] = v.PacketsSent
 		rawResults["packets_received"] = v.PacketsReceived
+	case map[string]interface{}:
+		// Handle speedtest results (passed as map)
+		if lat, ok := v["latency_ms"].(float64); ok {
+			latency = &lat
+		}
+		if thr, ok := v["throughput"].(float64); ok {
+			throughput = &thr
+		}
+		if jit, ok := v["jitter_ms"].(float64); ok {
+			jitter = &jit
+		}
+		// Copy all values to rawResults
+		for k, val := range v {
+			rawResults[k] = val
+		}
+		targetIP = "self" // speedtest is to the server itself
 	}
 
 	testResult := &database.TestResult{

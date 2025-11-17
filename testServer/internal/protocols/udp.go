@@ -36,9 +36,9 @@ func TestUDP(req UDPTestRequest) (*UDPTestResult, error) {
 	if protocol == "" {
 		protocol = req.ProtocolDetail
 	}
-	// Default to raw if still empty
+	// Default to dns if still empty
 	if protocol == "" {
-		protocol = "raw"
+		protocol = "dns"
 	}
 
 	// Parse target to extract host and port

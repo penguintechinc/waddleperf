@@ -103,7 +103,7 @@ CREATE TABLE IF NOT EXISTS server_test_results (
     device_os VARCHAR(100) NOT NULL,
     device_os_version VARCHAR(100) NOT NULL,
 
-    test_type ENUM('http', 'tcp', 'udp', 'icmp') NOT NULL,
+    test_type ENUM('http', 'tcp', 'udp', 'icmp', 'speedtest') NOT NULL,
     protocol_detail VARCHAR(50) NULL,
 
     target_host VARCHAR(255) NOT NULL,
@@ -140,7 +140,7 @@ CREATE TABLE IF NOT EXISTS client_test_results (
     device_os VARCHAR(100) NOT NULL,
     device_os_version VARCHAR(100) NOT NULL,
 
-    test_type ENUM('http', 'tcp', 'udp', 'icmp') NOT NULL,
+    test_type ENUM('http', 'tcp', 'udp', 'icmp', 'speedtest') NOT NULL,
     protocol_detail VARCHAR(50) NULL,
 
     target_host VARCHAR(255) NOT NULL,

@@ -128,6 +128,7 @@ function TestRunner({ user, onLogout, authEnabled }: TestRunnerProps) {
     timeout?: number
     count?: number
     protocol_detail?: string
+    query?: string
   }) => {
     console.log('[TestRunner] Starting test:', testData)
 
@@ -179,7 +180,7 @@ function TestRunner({ user, onLogout, authEnabled }: TestRunnerProps) {
               className={`tab-button ${activeTab === 'tests' ? 'active' : ''}`}
               onClick={() => setActiveTab('tests')}
             >
-              Network Tests
+              Remote Network Tests
             </button>
             <button
               className={`tab-button ${activeTab === 'speedtest' ? 'active' : ''}`}

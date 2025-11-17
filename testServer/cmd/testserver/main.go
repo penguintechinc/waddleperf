@@ -58,11 +58,13 @@ func main() {
 	speedtest.HandleFunc("/upload", testHandlers.SpeedTestUploadHandler).Methods("POST", "OPTIONS")
 	speedtest.HandleFunc("/ping", testHandlers.SpeedTestPingHandler).Methods("GET")
 	speedtest.HandleFunc("/info", testHandlers.SpeedTestInfoHandler).Methods("GET")
+	speedtest.HandleFunc("/result", testHandlers.SpeedTestResultHandler).Methods("POST", "OPTIONS")
 
 	// API routes (with auth)
 	api := router.PathPrefix("/api/v1").Subrouter()
 	api.Use(authenticator.Middleware)
 	api.Use(corsMiddleware)
+	api.Use(requestSizeLimitMiddleware)
 
 	api.HandleFunc("/test/http", testHandlers.HTTPTestHandler).Methods("POST")
 	api.HandleFunc("/test/tcp", testHandlers.TCPTestHandler).Methods("POST")
@@ -114,6 +116,15 @@ func corsMiddleware(next http.Handler) http.Handler {
 			return
 		}
 
+		next.ServeHTTP(w, r)
+	})
+}
+
+// requestSizeLimitMiddleware limits request body size to prevent DoS
+func requestSizeLimitMiddleware(next http.Handler) http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		// Limit request body to 1MB (plenty for test requests)
+		r.Body = http.MaxBytesReader(w, r.Body, 1*1024*1024)
 		next.ServeHTTP(w, r)
 	})
 }
