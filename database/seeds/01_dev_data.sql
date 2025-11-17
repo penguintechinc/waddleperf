@@ -15,25 +15,25 @@ INSERT INTO organization_units (name, description) VALUES
 -- ============================================
 -- Users
 -- ============================================
--- Password for all test users: "ChangeMeAlready"
+-- Password for all test users: "admin123"
 -- bcrypt hash generated with cost factor 12
 
 -- Global Admin user
 INSERT INTO users (username, email, password_hash, api_key, role, ou_id, mfa_enabled, is_active) VALUES
-('admin', 'admin@waddleperf.local', '$2b$12$9uwyLoVhTeIqjqIKdaigmuJKjjlmoxSS2M293Uks538J2DJZ4Mnf6', 'a1b2c3d4e5f6g7h8i9j0k1l2m3n4o5p6q7r8s9t0u1v2w3x4y5z6a7b8c9d0e1f2', 'global_admin', NULL, FALSE, TRUE),
+('admin', 'admin@waddleperf.local', '$2b$12$OUa4Ky.uDXNtWEf.sI704uENLZH6XWJ2WHTIW0Ek3JMSIpyqqs576', 'a1b2c3d4e5f6g7h8i9j0k1l2m3n4o5p6q7r8s9t0u1v2w3x4y5z6a7b8c9d0e1f2', 'global_admin', NULL, FALSE, TRUE),
 
 -- Global Reporter user
-('reporter', 'reporter@waddleperf.local', '$2b$12$9uwyLoVhTeIqjqIKdaigmuJKjjlmoxSS2M293Uks538J2DJZ4Mnf6', 'b2c3d4e5f6g7h8i9j0k1l2m3n4o5p6q7r8s9t0u1v2w3x4y5z6a7b8c9d0e1f2g3', 'global_reporter', NULL, FALSE, TRUE),
+('reporter', 'reporter@waddleperf.local', '$2b$12$OUa4Ky.uDXNtWEf.sI704uENLZH6XWJ2WHTIW0Ek3JMSIpyqqs576', 'b2c3d4e5f6g7h8i9j0k1l2m3n4o5p6q7r8s9t0u1v2w3x4y5z6a7b8c9d0e1f2g3', 'global_reporter', NULL, FALSE, TRUE),
 
 -- OU Admin user (IT Department)
-('it_admin', 'it_admin@waddleperf.local', '$2b$12$9uwyLoVhTeIqjqIKdaigmuJKjjlmoxSS2M293Uks538J2DJZ4Mnf6', 'c3d4e5f6g7h8i9j0k1l2m3n4o5p6q7r8s9t0u1v2w3x4y5z6a7b8c9d0e1f2g3h4', 'ou_admin', 1, FALSE, TRUE),
+('it_admin', 'it_admin@waddleperf.local', '$2b$12$OUa4Ky.uDXNtWEf.sI704uENLZH6XWJ2WHTIW0Ek3JMSIpyqqs576', 'c3d4e5f6g7h8i9j0k1l2m3n4o5p6q7r8s9t0u1v2w3x4y5z6a7b8c9d0e1f2g3h4', 'ou_admin', 1, FALSE, TRUE),
 
 -- OU Reporter user (Customer Success)
-('cs_reporter', 'cs_reporter@waddleperf.local', '$2b$12$9uwyLoVhTeIqjqIKdaigmuJKjjlmoxSS2M293Uks538J2DJZ4Mnf6', 'd4e5f6g7h8i9j0k1l2m3n4o5p6q7r8s9t0u1v2w3x4y5z6a7b8c9d0e1f2g3h4i5', 'ou_reporter', 2, FALSE, TRUE),
+('cs_reporter', 'cs_reporter@waddleperf.local', '$2b$12$OUa4Ky.uDXNtWEf.sI704uENLZH6XWJ2WHTIW0Ek3JMSIpyqqs576', 'd4e5f6g7h8i9j0k1l2m3n4o5p6q7r8s9t0u1v2w3x4y5z6a7b8c9d0e1f2g3h4i5', 'ou_reporter', 2, FALSE, TRUE),
 
 -- Regular users
-('user1', 'user1@waddleperf.local', '$2b$12$9uwyLoVhTeIqjqIKdaigmuJKjjlmoxSS2M293Uks538J2DJZ4Mnf6', 'e5f6g7h8i9j0k1l2m3n4o5p6q7r8s9t0u1v2w3x4y5z6a7b8c9d0e1f2g3h4i5j6', 'user', 3, FALSE, TRUE),
-('user2', 'user2@waddleperf.local', '$2b$12$9uwyLoVhTeIqjqIKdaigmuJKjjlmoxSS2M293Uks538J2DJZ4Mnf6', 'f6g7h8i9j0k1l2m3n4o5p6q7r8s9t0u1v2w3x4y5z6a7b8c9d0e1f2g3h4i5j6k7', 'user', 3, FALSE, TRUE);
+('user1', 'user1@waddleperf.local', '$2b$12$OUa4Ky.uDXNtWEf.sI704uENLZH6XWJ2WHTIW0Ek3JMSIpyqqs576', 'e5f6g7h8i9j0k1l2m3n4o5p6q7r8s9t0u1v2w3x4y5z6a7b8c9d0e1f2g3h4i5j6', 'user', 3, FALSE, TRUE),
+('user2', 'user2@waddleperf.local', '$2b$12$OUa4Ky.uDXNtWEf.sI704uENLZH6XWJ2WHTIW0Ek3JMSIpyqqs576', 'f6g7h8i9j0k1l2m3n4o5p6q7r8s9t0u1v2w3x4y5z6a7b8c9d0e1f2g3h4i5j6k7', 'user', 3, FALSE, TRUE);
 
 -- ============================================
 -- Server Keys

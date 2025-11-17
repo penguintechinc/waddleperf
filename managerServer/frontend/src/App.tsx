@@ -10,6 +10,7 @@ import Users from './pages/Users';
 import Organizations from './pages/Organizations';
 import Statistics from './pages/Statistics';
 import Profile from './pages/Profile';
+import Devices from './pages/Devices';
 import './App.css';
 
 const App: React.FC = () => {
@@ -78,6 +79,17 @@ const App: React.FC = () => {
                   <div className="app-layout">
                     <Navbar />
                     <Profile />
+                  </div>
+                </ProtectedRoute>
+              }
+            />
+            <Route
+              path="/devices"
+              element={
+                <ProtectedRoute>
+                  <div className="app-layout">
+                    <Navbar />
+                    <Devices />
                   </div>
                 </ProtectedRoute>
               }

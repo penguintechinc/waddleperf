@@ -5,14 +5,19 @@ import (
 	"encoding/json"
 	"fmt"
 	"net"
+	"net/url"
+	"strconv"
+	"strings"
 	"time"
 )
 
 type UDPTestRequest struct {
-	Target   string `json:"target"`
-	Protocol string `json:"protocol"` // raw, tls, dns
-	Timeout  int    `json:"timeout"`
-	Query    string `json:"query,omitempty"` // For DNS
+	Target         string `json:"target"`
+	Protocol       string `json:"protocol"`        // raw, tls, dns
+	ProtocolDetail string `json:"protocol_detail"` // Alternative field name for compatibility
+	Port           int    `json:"port"`            // Optional port override
+	Timeout        int    `json:"timeout"`
+	Query          string `json:"query,omitempty"` // For DNS
 }
 
 type UDPTestResult struct {
@@ -26,9 +31,25 @@ type UDPTestResult struct {
 }
 
 func TestUDP(req UDPTestRequest) (*UDPTestResult, error) {
+	// Use ProtocolDetail if Protocol is empty (for compatibility)
+	protocol := req.Protocol
+	if protocol == "" {
+		protocol = req.ProtocolDetail
+	}
+	// Default to raw if still empty
+	if protocol == "" {
+		protocol = "raw"
+	}
+
+	// Parse target to extract host and port
+	target, err := parseUDPTarget(req.Target, req.Port, protocol)
+	if err != nil {
+		return nil, err
+	}
+
 	result := &UDPTestResult{
-		Target:   req.Target,
-		Protocol: req.Protocol,
+		Target:   target,
+		Protocol: protocol,
 	}
 
 	timeout := time.Duration(req.Timeout) * time.Second
@@ -36,19 +57,65 @@ func TestUDP(req UDPTestRequest) (*UDPTestResult, error) {
 		timeout = 5 * time.Second
 	}
 
-	switch req.Protocol {
+	switch protocol {
 	case "raw":
-		return testRawUDP(req.Target, timeout, result)
+		return testRawUDP(target, timeout, result)
 	case "dns":
-		return testDNS(req.Target, req.Query, timeout, result)
+		return testDNS(target, req.Query, timeout, result)
 	case "tls":
 		// DTLS not commonly implemented in Go stdlib
 		result.Error = "UDP+TLS (DTLS) not yet implemented"
 		return result, fmt.Errorf(result.Error)
 	default:
-		result.Error = fmt.Sprintf("unsupported protocol: %s", req.Protocol)
+		result.Error = fmt.Sprintf("unsupported protocol: %s", protocol)
 		return result, fmt.Errorf(result.Error)
 	}
+}
+
+// parseUDPTarget extracts host:port from various input formats
+func parseUDPTarget(target string, portOverride int, protocol string) (string, error) {
+	// If target already has host:port format, use it
+	if strings.Contains(target, ":") && !strings.Contains(target, "://") {
+		return target, nil
+	}
+
+	// Try to parse as URL
+	var host string
+	var port int
+
+	if strings.Contains(target, "://") {
+		// Parse as URL
+		u, err := url.Parse(target)
+		if err != nil {
+			return "", fmt.Errorf("invalid target URL: %v", err)
+		}
+		host = u.Hostname()
+		if u.Port() != "" {
+			port, _ = strconv.Atoi(u.Port())
+		}
+	} else {
+		// Assume it's just a hostname
+		host = target
+	}
+
+	// Use port override if provided
+	if portOverride > 0 {
+		port = portOverride
+	}
+
+	// If still no port, use defaults based on protocol
+	if port == 0 {
+		switch protocol {
+		case "dns":
+			port = 53
+		case "raw":
+			port = 161 // SNMP default, but UDP raw can be anything
+		default:
+			port = 161
+		}
+	}
+
+	return fmt.Sprintf("%s:%d", host, port), nil
 }
 
 func testRawUDP(target string, timeout time.Duration, result *UDPTestResult) (*UDPTestResult, error) {

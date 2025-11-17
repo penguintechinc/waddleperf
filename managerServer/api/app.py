@@ -31,6 +31,7 @@ def create_app(config=None):
     from routes.results import results_bp
     from routes.config import config_bp
     from routes.enrollment import enrollment_bp
+    from routes.devices import devices_bp
 
     app.register_blueprint(auth_bp, url_prefix='/api/v1/auth')
     app.register_blueprint(users_bp, url_prefix='/api/v1/users')
@@ -39,6 +40,7 @@ def create_app(config=None):
     app.register_blueprint(results_bp, url_prefix='/api/v1/results')
     app.register_blueprint(config_bp, url_prefix='/api/v1/config')
     app.register_blueprint(enrollment_bp, url_prefix='/api/v1/enrollment')
+    app.register_blueprint(devices_bp, url_prefix='/api/v1')
 
     # Health check
     @app.route('/health')

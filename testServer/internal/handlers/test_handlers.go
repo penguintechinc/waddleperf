@@ -25,7 +25,12 @@ func (h *TestHandlers) HTTPTestHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	result, _ := protocols.TestHTTP(req)
+	result, err := protocols.TestHTTP(req)
+	if err != nil {
+		log.Printf("HTTP test failed: %v", err)
+		http.Error(w, "Test execution failed", http.StatusInternalServerError)
+		return
+	}
 
 	if err := h.saveTestResult(r, "http", req.Protocol, req.Target, result); err != nil {
 		log.Printf("Failed to save test result: %v", err)
@@ -42,7 +47,12 @@ func (h *TestHandlers) TCPTestHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	result, _ := protocols.TestTCP(req)
+	result, err := protocols.TestTCP(req)
+	if err != nil {
+		log.Printf("TCP test failed: %v", err)
+		http.Error(w, "Test execution failed", http.StatusInternalServerError)
+		return
+	}
 
 	if err := h.saveTestResult(r, "tcp", req.Protocol, req.Target, result); err != nil {
 		log.Printf("Failed to save test result: %v", err)
@@ -59,7 +69,12 @@ func (h *TestHandlers) UDPTestHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	result, _ := protocols.TestUDP(req)
+	result, err := protocols.TestUDP(req)
+	if err != nil {
+		log.Printf("UDP test failed: %v", err)
+		http.Error(w, "Test execution failed", http.StatusInternalServerError)
+		return
+	}
 
 	if err := h.saveTestResult(r, "udp", req.Protocol, req.Target, result); err != nil {
 		log.Printf("Failed to save test result: %v", err)
@@ -76,7 +91,12 @@ func (h *TestHandlers) ICMPTestHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	result, _ := protocols.TestICMP(req)
+	result, err := protocols.TestICMP(req)
+	if err != nil {
+		log.Printf("ICMP test failed: %v", err)
+		http.Error(w, "Test execution failed", http.StatusInternalServerError)
+		return
+	}
 
 	if err := h.saveTestResult(r, "icmp", req.Protocol, req.Target, result); err != nil {
 		log.Printf("Failed to save test result: %v", err)

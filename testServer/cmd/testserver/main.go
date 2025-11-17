@@ -73,8 +73,8 @@ func main() {
 	server := &http.Server{
 		Addr:         fmt.Sprintf(":%s", port),
 		Handler:      router,
-		ReadTimeout:  120 * time.Second,  // Increased for speedtest uploads
-		WriteTimeout: 120 * time.Second,  // Increased for speedtest downloads
+		ReadTimeout:  120 * time.Second, // Increased for speedtest uploads
+		WriteTimeout: 120 * time.Second, // Increased for speedtest downloads
 		IdleTimeout:  180 * time.Second,
 	}
 

@@ -113,25 +113,25 @@ CREATE TABLE IF NOT EXISTS client_test_results (
     FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE SET NULL
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
--- Insert default admin user (password: ChangeMeAlready)
+-- Insert default admin user (password: admin123)
 -- Password hash generated with bcrypt, cost factor 12
 INSERT INTO users (username, email, password_hash, api_key, role, is_active)
 VALUES (
     'admin',
     'admin@waddleperf.local',
-    '$2b$12$6zGN0pSQX5yJLp7q9vKzEeKGZ/jQx0Y8Z6h4x2F.Y9LW3XKJ/kL5K',
+    '$2b$12$OUa4Ky.uDXNtWEf.sI704uENLZH6XWJ2WHTIW0Ek3JMSIpyqqs576',
     'admin-api-key-abcdef1234567890abcdef1234567890abcdef1234567890ab',
     'global_admin',
     TRUE
 ) ON DUPLICATE KEY UPDATE username=username;
 
--- Insert default test user (password: testpass123)
+-- Insert default test user (password: admin123)
 -- Password hash generated with bcrypt, cost factor 12
 INSERT INTO users (username, email, password_hash, api_key, role, is_active)
 VALUES (
     'testuser',
     'test@waddleperf.local',
-    '$2b$12$LQv3c1yqBWVHxkd0LHAkCOYz6TtxMQJqhN8/LewY5oBzL6oU4NDZK',
+    '$2b$12$OUa4Ky.uDXNtWEf.sI704uENLZH6XWJ2WHTIW0Ek3JMSIpyqqs576',
     'test-api-key-1234567890abcdef1234567890abcdef1234567890abcdef12',
     'user',
     TRUE

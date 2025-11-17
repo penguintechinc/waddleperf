@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"math"
+	"net/url"
 	"os/exec"
 	"runtime"
 	"strconv"
@@ -11,10 +12,11 @@ import (
 )
 
 type ICMPTestRequest struct {
-	Target   string `json:"target"`
-	Protocol string `json:"protocol"` // ping, traceroute
-	Count    int    `json:"count"`
-	Timeout  int    `json:"timeout"`
+	Target         string `json:"target"`
+	Protocol       string `json:"protocol"`        // ping, traceroute
+	ProtocolDetail string `json:"protocol_detail"` // Alternative field name for compatibility
+	Count          int    `json:"count"`
+	Timeout        int    `json:"timeout"`
 }
 
 type ICMPTestResult struct {
@@ -33,9 +35,22 @@ type ICMPTestResult struct {
 }
 
 func TestICMP(req ICMPTestRequest) (*ICMPTestResult, error) {
+	// Use ProtocolDetail if Protocol is empty (for compatibility)
+	protocol := req.Protocol
+	if protocol == "" {
+		protocol = req.ProtocolDetail
+	}
+	// Default to ping if still empty
+	if protocol == "" {
+		protocol = "ping"
+	}
+
+	// Extract hostname from target (remove URL scheme if present)
+	target := extractHostname(req.Target)
+
 	result := &ICMPTestResult{
-		Target:   req.Target,
-		Protocol: req.Protocol,
+		Target:   target,
+		Protocol: protocol,
 	}
 
 	if req.Count == 0 {
@@ -45,15 +60,34 @@ func TestICMP(req ICMPTestRequest) (*ICMPTestResult, error) {
 		req.Timeout = 10
 	}
 
-	switch req.Protocol {
+	switch protocol {
 	case "ping":
-		return testPing(req.Target, req.Count, req.Timeout, result)
+		return testPing(target, req.Count, req.Timeout, result)
 	case "traceroute":
-		return testTraceroute(req.Target, req.Timeout, result)
+		return testTraceroute(target, req.Timeout, result)
 	default:
-		result.Error = fmt.Sprintf("unsupported protocol: %s", req.Protocol)
+		result.Error = fmt.Sprintf("unsupported protocol: %s", protocol)
 		return result, fmt.Errorf(result.Error)
 	}
+}
+
+// extractHostname removes URL scheme and port from target
+func extractHostname(target string) string {
+	// If it's a URL, parse it
+	if strings.Contains(target, "://") {
+		u, err := url.Parse(target)
+		if err == nil {
+			return u.Hostname()
+		}
+	}
+
+	// Remove port if present
+	if strings.Contains(target, ":") {
+		parts := strings.Split(target, ":")
+		return parts[0]
+	}
+
+	return target
 }
 
 func testPing(target string, count, timeout int, result *ICMPTestResult) (*ICMPTestResult, error) {

@@ -5,16 +5,18 @@ import (
 	"encoding/json"
 	"fmt"
 	"net/http"
+	"strings"
 	"time"
 
 	"golang.org/x/net/http2"
 )
 
 type HTTPTestRequest struct {
-	Target   string `json:"target"`
-	Protocol string `json:"protocol"` // http1, http2, http3
-	Method   string `json:"method"`
-	Timeout  int    `json:"timeout"` // seconds
+	Target         string `json:"target"`
+	Protocol       string `json:"protocol"`        // http1, http2, http3
+	ProtocolDetail string `json:"protocol_detail"` // Alternative field name for compatibility
+	Method         string `json:"method"`
+	Timeout        int    `json:"timeout"` // seconds
 }
 
 type HTTPTestResult struct {
@@ -30,9 +32,25 @@ type HTTPTestResult struct {
 }
 
 func TestHTTP(req HTTPTestRequest) (*HTTPTestResult, error) {
+	// Use ProtocolDetail if Protocol is empty (for compatibility)
+	protocol := req.Protocol
+	if protocol == "" {
+		protocol = req.ProtocolDetail
+	}
+	// Default to http2 if still empty
+	if protocol == "" {
+		protocol = "http2"
+	}
+
+	// Ensure target has scheme
+	target := req.Target
+	if !strings.HasPrefix(target, "http://") && !strings.HasPrefix(target, "https://") {
+		target = "https://" + target
+	}
+
 	result := &HTTPTestResult{
-		Target:   req.Target,
-		Protocol: req.Protocol,
+		Target:   target,
+		Protocol: protocol,
 	}
 
 	timeout := time.Duration(req.Timeout) * time.Second
@@ -42,7 +60,7 @@ func TestHTTP(req HTTPTestRequest) (*HTTPTestResult, error) {
 
 	var client *http.Client
 
-	switch req.Protocol {
+	switch protocol {
 	case "http1":
 		client = &http.Client{
 			Timeout: timeout,
@@ -61,7 +79,7 @@ func TestHTTP(req HTTPTestRequest) (*HTTPTestResult, error) {
 		// TODO: Implement HTTP/3 when quic-go is stable
 		return nil, fmt.Errorf("HTTP/3 not yet implemented")
 	default:
-		return nil, fmt.Errorf("unsupported protocol: %s", req.Protocol)
+		return nil, fmt.Errorf("unsupported protocol: %s", protocol)
 	}
 
 	method := req.Method
@@ -71,7 +89,7 @@ func TestHTTP(req HTTPTestRequest) (*HTTPTestResult, error) {
 
 	startTime := time.Now()
 
-	httpReq, err := http.NewRequest(method, req.Target, nil)
+	httpReq, err := http.NewRequest(method, target, nil)
 	if err != nil {
 		result.Success = false
 		result.Error = err.Error()

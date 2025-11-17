@@ -117,11 +117,11 @@ func (h *TestHandlers) SpeedTestInfoHandler(w http.ResponseWriter, r *http.Reque
 	w.Header().Set("Access-Control-Allow-Origin", "*")
 
 	json.NewEncoder(w).Encode(map[string]interface{}{
-		"name":                 "WaddlePerf SpeedTest",
-		"version":              "1.0.0",
-		"max_chunk_size_mb":    100,
+		"name":                  "WaddlePerf SpeedTest",
+		"version":               "1.0.0",
+		"max_chunk_size_mb":     100,
 		"default_chunk_size_mb": 10,
 		"recommended_streams":   6,
-		"max_streams":          32,
+		"max_streams":           32,
 	})
 }

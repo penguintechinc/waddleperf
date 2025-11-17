@@ -41,6 +41,7 @@ const Navbar: React.FC = () => {
       </div>
       <div className="navbar-links">
         <Link to="/dashboard">Dashboard</Link>
+        <Link to="/devices">Devices</Link>
         <Link to="/statistics">Statistics</Link>
         {isAdmin && <Link to="/users">Users</Link>}
         {isAdmin && <Link to="/organizations">Organizations</Link>}

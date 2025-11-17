@@ -5,15 +5,20 @@ import (
 	"encoding/json"
 	"fmt"
 	"net"
+	"net/url"
+	"strconv"
+	"strings"
 	"time"
 
 	"golang.org/x/crypto/ssh"
 )
 
 type TCPTestRequest struct {
-	Target   string `json:"target"`
-	Protocol string `json:"protocol"` // raw, tls, ssh
-	Timeout  int    `json:"timeout"`
+	Target         string `json:"target"`
+	Protocol       string `json:"protocol"`        // raw, tls, ssh
+	ProtocolDetail string `json:"protocol_detail"` // Alternative field name for compatibility
+	Port           int    `json:"port"`            // Optional port override
+	Timeout        int    `json:"timeout"`
 }
 
 type TCPTestResult struct {
@@ -30,9 +35,25 @@ type TCPTestResult struct {
 }
 
 func TestTCP(req TCPTestRequest) (*TCPTestResult, error) {
+	// Use ProtocolDetail if Protocol is empty (for compatibility)
+	protocol := req.Protocol
+	if protocol == "" {
+		protocol = req.ProtocolDetail
+	}
+	// Default to raw if still empty
+	if protocol == "" {
+		protocol = "raw"
+	}
+
+	// Parse target to extract host and port
+	target, err := parseTarget(req.Target, req.Port, protocol)
+	if err != nil {
+		return nil, err
+	}
+
 	result := &TCPTestResult{
-		Target:   req.Target,
-		Protocol: req.Protocol,
+		Target:   target,
+		Protocol: protocol,
 	}
 
 	timeout := time.Duration(req.Timeout) * time.Second
@@ -40,17 +61,65 @@ func TestTCP(req TCPTestRequest) (*TCPTestResult, error) {
 		timeout = 10 * time.Second
 	}
 
-	switch req.Protocol {
+	switch protocol {
 	case "raw":
-		return testRawTCP(req.Target, timeout, result)
+		return testRawTCP(target, timeout, result)
 	case "tls":
-		return testTLSTCP(req.Target, timeout, result)
+		return testTLSTCP(target, timeout, result)
 	case "ssh":
-		return testSSH(req.Target, timeout, result)
+		return testSSH(target, timeout, result)
 	default:
-		result.Error = fmt.Sprintf("unsupported protocol: %s", req.Protocol)
+		result.Error = fmt.Sprintf("unsupported protocol: %s", protocol)
 		return result, fmt.Errorf(result.Error)
 	}
+}
+
+// parseTarget extracts host:port from various input formats
+func parseTarget(target string, portOverride int, protocol string) (string, error) {
+	// If target already has host:port format, use it
+	if strings.Contains(target, ":") && !strings.Contains(target, "://") {
+		return target, nil
+	}
+
+	// Try to parse as URL
+	var host string
+	var port int
+
+	if strings.Contains(target, "://") {
+		// Parse as URL
+		u, err := url.Parse(target)
+		if err != nil {
+			return "", fmt.Errorf("invalid target URL: %v", err)
+		}
+		host = u.Hostname()
+		if u.Port() != "" {
+			port, _ = strconv.Atoi(u.Port())
+		}
+	} else {
+		// Assume it's just a hostname
+		host = target
+	}
+
+	// Use port override if provided
+	if portOverride > 0 {
+		port = portOverride
+	}
+
+	// If still no port, use defaults based on protocol
+	if port == 0 {
+		switch protocol {
+		case "tls":
+			port = 443
+		case "ssh":
+			port = 22
+		case "raw":
+			port = 80
+		default:
+			port = 80
+		}
+	}
+
+	return fmt.Sprintf("%s:%d", host, port), nil
 }
 
 func testRawTCP(target string, timeout time.Duration, result *TCPTestResult) (*TCPTestResult, error) {
