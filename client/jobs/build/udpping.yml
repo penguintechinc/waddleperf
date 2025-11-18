@@ -1,8 +1,0 @@
----
-- name: copy udpping to usr binary directory
-  ansible.builtin.copy:
-    src: bins/udpping.py
-    dest: /usr/local/bin/udpping
-    owner: root
-    group: root
-    mode: '0755'

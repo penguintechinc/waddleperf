@@ -1,328 +1,173 @@
 # WaddlePerf Architecture
 
-## System Overview
+**Version**: 4.0.0
+**Last Updated**: November 12, 2025
 
-WaddlePerf is a distributed network performance testing platform consisting of client and server components that work together to provide comprehensive network diagnostics and monitoring.
+## Overview
 
-```
-┌─────────────────────────────────────────────────────────────┐
-│                        WaddlePerf System                      │
-├───────────────────┬───────────────────┬────────────────────┤
-│   Client Component │   Server Component │    Go Desktop Client│
-├───────────────────┼───────────────────┼────────────────────┤
-│   Python/py4web   │   Python/Flask     │    Go/System Tray  │
-│   Ansible         │   nginx/iperf3     │    Native Tests    │
-│   Test Tools      │   GeoIP/Speed Test │    Log Files       │
-└───────────────────┴───────────────────┴────────────────────┘
-```
+WaddlePerf is a distributed network performance testing and monitoring platform designed to test user experience between endpoints. The system consists of a centralized management server, high-performance test servers, and multiple client implementations.
 
-## Component Architecture
+## Architecture Principles
 
-### Client Component
+1. **Stateless Components**: All servers and clients are stateless, enabling horizontal scaling
+2. **Centralized State**: MariaDB Galera cluster is the single source of truth for all persistence
+3. **Multi-Protocol Support**: HTTP/1.1/2/3, TCP (raw/TLS/SSH), UDP (raw/DNS), ICMP (ping/traceroute)
+4. **Authentication-First**: JWT, API keys, and user/password authentication on all endpoints
+5. **Real-Time Updates**: WebSocket support for live test result streaming
+6. **Microservices Architecture**: Independent, containerized services with well-defined APIs
 
-#### Technology Stack
-- **Runtime**: Python 3.9+ with py4web framework
-- **Automation**: Ansible for configuration management
-- **Testing Tools**: Collection of network diagnostic utilities
-- **Deployment**: Docker container or standalone installation
+## System Components
 
-#### Key Modules
+### 1. Database Layer - MariaDB Galera
 
-##### Web Interface (py4web)
-```
-client/web/apps/_default/
-├── controllers.py    # HTTP endpoints and API routes
-├── models.py         # Data models and database schema
-├── templates/        # HTML templates
-│   ├── index.html
-│   ├── system.html
-│   └── auth.html
-└── static/          # CSS, JS, and static assets
-```
+**Technology**: MariaDB 11.2 with Galera Cluster support
+**Purpose**: Centralized state and persistence for the entire platform
 
-##### Testing Binaries
-```
-client/bins/
-├── getSysInfo.py     # System information collector
-├── httptrace.py      # HTTP traceroute implementation
-├── mtuFinder.py      # MTU discovery tool
-├── perfDB.py         # Performance database manager
-├── ppingParser.py    # PPING output parser
-├── resolverTime.py   # DNS resolution timing
-├── sshping.py        # SSH connectivity tester
-├── udpping.py        # UDP ping implementation
-└── waddledb.py       # Main database interface
-```
+**Database Schema**:
+- `organization_units` - Hierarchical organization structure for user delegation
+- `users` - User accounts with roles, MFA, API keys
+- `sessions` - Active user sessions for web UIs
+- `jwt_tokens` - Issued JWT tokens with expiration tracking
+- `server_keys` - Shared secret keys for server-to-server communication
+- `server_test_results` - Test results from testServer executions
+- `client_test_results` - Test results from client submissions
+- `client_configs` - Per-device configuration for automated clients
 
-##### Ansible Automation
-```
-client/jobs/
-├── build/           # Build-time tasks
-├── integrate/       # Integration tests
-├── run/            # Runtime execution
-│   ├── autoperf.yml
-│   ├── client.yml
-│   ├── cron.yml
-│   └── mtr.yml
-└── tests/          # Test suites
-```
+**Features**:
+- Connection pooling (100 max connections per service)
+- UTF-8mb4 character set with unicode collation
+- Automatic cleanup via stored procedures
+- Views for common queries (recent tests, device stats)
+- Index optimization for performance
 
-### Server Component
+### 2. testServer (Go)
 
-#### Technology Stack
-- **Web Server**: nginx as reverse proxy
-- **Application**: Flask for REST API
-- **Testing Server**: iperf3 for bandwidth testing
-- **Database**: SQLite for local storage
-- **GeoIP**: MaxMind GeoLite2 for location services
+**Technology**: Go 1.21, Gorilla Mux
+**Purpose**: High-performance, multi-protocol network test execution
 
-#### Architecture Layers
+**Responsibilities**:
+- Execute HTTP/1.1/2/3 tests with detailed timing metrics
+- TCP testing (raw, TLS 1.2/1.3, SSH)
+- UDP testing (raw packets, DNS queries)
+- ICMP testing (ping, traceroute)
+- Authentication validation (JWT, API keys, server keys)
+- Test result storage in database
 
-##### Web Layer (nginx)
-```nginx
-server {
-    listen 80;
-    listen 443 ssl;
-    
-    location / {
-        proxy_pass http://flask-app:5000;
-    }
-    
-    location /speedtest {
-        alias /app/libs/speedtest;
-    }
-}
-```
+**Performance**: 100+ concurrent tests, 13 MB binary, 50 MB Docker image
 
-##### Application Layer (Flask)
-```python
-# server/web/userstats.py
-@app.route('/api/stats', methods=['POST'])
-def user_stats():
-    # Process user statistics
-    # Store in database
-    # Return JSON response
-```
+### 3. managerServer (Flask + React) - Split Container Architecture
 
-##### Service Layer
-- **iperf3**: TCP/UDP bandwidth testing on port 5201
-- **UDP Server**: Custom UDP ping server on port 2000
-- **GeoIP Service**: IP geolocation lookup
+**Container 1: managerServer API**
+- **Technology**: Python 3.13, Flask 3.0, SQLAlchemy, Gunicorn + gevent
+- **Purpose**: Management backend for authentication, user management, and statistics
+- **Port**: 5000 (HTTP), 50051 (gRPC)
+- **Responsibilities**:
+  - User authentication (username/password, MFA/TOTP)
+  - JWT token issuance and revocation
+  - User CRUD operations with role-based access control
+  - Organization Unit management
+  - Statistics aggregation and querying
 
-### Go Desktop Client
+**Container 2: managerServer Frontend**
+- **Technology**: React 18, TypeScript, Vite, Recharts, nginx
+- **Purpose**: Management dashboard for administrators
+- **Port**: 3000
+- **Features**:
+  - User management with role assignment
+  - Organization Unit management
+  - Statistics visualization
+  - MFA setup with QR codes
+  - Light/dark/auto theme support
 
-#### Architecture
-```
-go-client/
-├── cmd/waddleperf/     # Main application entry
-│   └── main.go
-├── internal/
-│   ├── network/        # Network testing logic
-│   │   └── client.go
-│   ├── system/         # System information
-│   │   └── info.go
-│   └── ui/            # System tray interface
-│       └── tray.go
-```
+**Note**: managerServer uses separate backend/frontend containers in both development (docker-compose) and production (GitHub Actions builds).
 
-#### Key Features
-- **System Tray Integration**: Native OS integration
-- **Continuous Monitoring**: Hourly automated tests
-- **Manual Testing**: On-demand test execution
-- **Local Logging**: Results stored in log files
+### 4. webClient (Flask + React) - Split Container Architecture
 
-## Data Flow
+**Container 1: webClient API**
+- **Technology**: Python 3.13, Flask 3.0, Flask-SocketIO, Gunicorn + eventlet
+- **Purpose**: Backend for browser-based network testing with real-time updates
+- **Port**: 5001
+- **Features**: WebSocket server for live test streaming, authentication proxy
 
-### Test Execution Flow
+**Container 2: webClient Frontend**
+- **Technology**: React 18, TypeScript, Vite, Recharts, Socket.IO, nginx
+- **Purpose**: Browser-based network testing interface
+- **Port**: 3001
+- **Features**: Real-time charts, live gauges, interactive test forms
 
-```mermaid
-sequenceDiagram
-    participant User
-    participant Client
-    participant Server
-    participant S3
-    
-    User->>Client: Initiate Test
-    Client->>Client: Run Local Tests
-    Client->>Server: HTTP/TCP/UDP Tests
-    Server-->>Client: Test Results
-    Client->>Client: Process Results
-    Client->>S3: Store Results (optional)
-    Client->>User: Display Results
+**Note**: webClient uses separate backend/frontend containers in both development (docker-compose) and production (GitHub Actions builds).
+
+### 6. containerClient (Python)
+
+**Technology**: Python 3.13, AsyncIO
+**Purpose**: Automated scheduled testing for continuous monitoring
+
+**Features**: Cron-like scheduling, multi-protocol testing, device auto-detection
+
+### 7. goClient (Go Thick Client)
+
+**Technology**: Go 1.21, Cobra CLI
+**Purpose**: Cross-platform desktop client for manual and scheduled testing
+
+**Platforms**: macOS (ARM64/AMD64), Windows (AMD64/ARM64), Linux (AMD64/ARM64)
+
+## Authentication & Security
+
+### Authentication Methods
+
+1. **JWT Tokens**: HS256, 24-hour expiration, stored in database
+2. **API Keys**: 64-char hex, SHA256 hashed, stored in users table
+3. **Username/Password**: bcrypt with cost factor 12, optional MFA/TOTP
+4. **Server Keys**: 64-char hex for server-to-server gRPC
+
+### Role-Based Access Control
+
+| Role | Permissions |
+|------|-------------|
+| global_admin | Full access to all features |
+| global_reporter | Read-only across all OUs |
+| ou_admin | Admin within assigned OU |
+| ou_reporter | Read-only within assigned OU |
+| user | Execute tests, view own results |
+
+## Deployment
+
+### Development
+```bash
+docker-compose up -d
 ```
 
-### AutoPerf Tier System
+**Services**:
+- MariaDB: localhost:3306
+- testServer: localhost:8080
+- managerServer API: localhost:5000
+- managerServer Frontend: localhost:3000
+- webClient API: localhost:5001
+- webClient Frontend: localhost:3001
+- Adminer: localhost:8081
 
-```
-Tier 1 (Frequent - Every X minutes)
-├── Basic connectivity check
-├── Simple ping test
-└── HTTP availability
-
-    ↓ Threshold Exceeded
-
-Tier 2 (Intermediate Diagnostics)
-├── Detailed network trace
-├── Bandwidth testing
-├── DNS resolution analysis
-└── Port connectivity scan
-
-    ↓ Threshold Exceeded
-
-Tier 3 (Comprehensive Analysis)
-├── Full MTR trace
-├── Extended iperf3 tests
-├── SSL/TLS analysis
-├── Complete system diagnostics
-└── Packet capture (optional)
+### Production
+```bash
+docker-compose up -d
 ```
 
-## Network Architecture
+**Recommended**: MariaDB Galera 3-node cluster, nginx load balancer, Kubernetes for orchestration
 
-### Port Requirements
+## Technology Stack
 
-| Component | Port | Protocol | Purpose |
-|-----------|------|----------|---------|
-| Web UI | 8080 | TCP | Client web interface |
-| HTTP | 80 | TCP | Server web interface |
-| HTTPS | 443 | TCP | Secure web interface |
-| iperf3 | 5201 | TCP | Bandwidth testing |
-| UDP Ping | 2000 | UDP | UDP connectivity |
-| SSH | 22 | TCP | SSH ping testing |
+| Component | Technology |
+|-----------|------------|
+| Database | MariaDB 11.2 |
+| Backend | Flask 3.0, Go 1.21 |
+| Frontend | React 18, TypeScript, Vite |
+| Authentication | JWT, bcrypt, TOTP |
+| Real-Time | Socket.IO, WebSockets |
+| Containerization | Docker, Docker Compose |
 
-### Communication Protocols
+## Contributing
 
-#### REST API
-```
-POST /api/test/start
-Content-Type: application/json
-{
-    "test_type": "comprehensive",
-    "target": "server.example.com",
-    "options": {
-        "timeout": 30,
-        "retries": 3
-    }
-}
-```
+See [CONTRIBUTING.md](CONTRIBUTING.md) for development setup.
 
-#### WebSocket (Future)
-```javascript
-const ws = new WebSocket('wss://server:443/realtime');
-ws.on('message', (data) => {
-    // Real-time test updates
-});
-```
+## License
 
-## Deployment Architecture
-
-### Docker Deployment
-```yaml
-services:
-  client:
-    image: waddleperf-client
-    networks:
-      - waddleperf-net
-    volumes:
-      - results:/app/results
-      
-  server:
-    image: waddleperf-server
-    networks:
-      - waddleperf-net
-    ports:
-      - "80:80"
-      - "443:443"
-      - "5201:5201"
-```
-
-### Kubernetes Deployment
-```yaml
-apiVersion: apps/v1
-kind: Deployment
-metadata:
-  name: waddleperf
-spec:
-  replicas: 3
-  selector:
-    matchLabels:
-      app: waddleperf
-  template:
-    spec:
-      containers:
-      - name: client
-        image: waddleperf-client
-      - name: server
-        image: waddleperf-server
-```
-
-### High Availability Setup
-```
-        Load Balancer
-             │
-    ┌────────┼────────┐
-    │        │        │
-Server-1  Server-2  Server-3
-    │        │        │
-    └────────┼────────┘
-          Database
-         (Replicated)
-```
-
-## Security Architecture
-
-### Authentication & Authorization
-- **Client**: py4web built-in authentication
-- **Server**: API key validation
-- **Transport**: TLS/SSL encryption
-
-### Data Protection
-- **In Transit**: HTTPS/TLS 1.3
-- **At Rest**: Encrypted S3 storage
-- **Logs**: Sanitized output, no credentials
-
-### Network Isolation
-```
-DMZ Zone
-├── WaddlePerf Server (public facing)
-└── nginx reverse proxy
-
-Internal Zone
-├── WaddlePerf Clients
-├── Database servers
-└── S3 storage endpoint
-```
-
-## Scalability Considerations
-
-### Horizontal Scaling
-- Stateless server components
-- Load balanced endpoints
-- Distributed test execution
-
-### Vertical Scaling
-- Resource allocation per component
-- Database optimization
-- Caching layer (Redis/Memcached)
-
-### Performance Optimization
-- Connection pooling
-- Async task execution
-- Result aggregation pipeline
-
-## Monitoring & Observability
-
-### Metrics Collection
-- Prometheus exporters
-- Custom metrics endpoint
-- Performance counters
-
-### Logging Strategy
-- Centralized logging (ELK stack)
-- Structured logging format
-- Log rotation policies
-
-### Alerting
-- Threshold-based alerts
-- Anomaly detection
-- Integration with PagerDuty/OpsGenie
+Copyright © 2025 Penguin Technologies Inc.

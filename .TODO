@@ -1,15 +1,199 @@
-## ✅ Completed Tasks:
-- ✅ Review the current code and create an initial CLAUDE.md with context
-- ✅ Correct github action workflows for building the Go Clients to include ARM/AMD 64 for linux, windows and a universal package for Mac
-- ✅ Update the docs in docs/ to be more comprehensive
-- ✅ Create a website/ folder and create a nodejs website which can be deployed to cloudflare pages
-- ✅ Add a fast waddler penguin ascii art to the top of the README.md
-- ✅ Replace the openspeedtest app with an expansion on the py4web website already built in
-- ✅ Update any python, including py4web, to utilize async and threading to improve performance
-- ✅ Update the go clients to have a system tray with continuous checks and manual test triggers
-- ✅ Update the go clients to be as performant and lightweight on resource consumption as possible
-- ✅ Create a RELEASE_NOTES.md file within /docs
+# WaddlePerf Implementation TODO
 
-## 📋 Remaining TODOs:
-- Validate the python3 apps actually compile and run and are PEP8 compliant
-- Generate a SVG of a northern rockhopper penguin with yellow eyebrows with blur lines behind it in clip art format under the ascii picture in README.md
+## 📊 Progress Legend
+- [ ] Not started
+- [~] In progress
+- [✅] Completed
+
+---
+
+## Database (MariaDB Galera)
+- [ ] Create database/schema.sql with all tables
+- [ ] Create database/migrations/ structure
+- [ ] Create database/seeds/ for test data
+- [ ] Add proper indexes and foreign keys
+- [ ] Implement partitioning strategy for test_results tables
+
+## testServer (Go)
+- [ ] Reuse speedtest Go foundation from /speedtest
+- [ ] Create testServer/cmd/main.go entry point
+- [ ] Implement MariaDB Galera connection pool
+- [ ] Create auth package (validate JWT/API key from DB)
+- [ ] Implement HTTP/1.1 test handler
+- [ ] Implement HTTP/2 test handler
+- [ ] Implement HTTP/3 (QUIC) test handler
+- [ ] Implement TCP raw connection test
+- [ ] Implement TCP+TLS test
+- [ ] Implement SSH connection test
+- [ ] Implement UDP raw test
+- [ ] Implement UDP+TLS test
+- [ ] Implement DNS query test
+- [ ] Implement ICMP ping test
+- [ ] Implement ICMP traceroute
+- [ ] Create test result storage (insert to server_test_results table)
+- [ ] Implement device metadata collection
+- [ ] Add gRPC server for managerServer communication
+- [ ] Implement 64-char server key validation
+- [ ] Add structured JSON logging
+- [ ] Create testServer/Dockerfile (multi-arch)
+- [ ] Create .github/workflows/testserver.yml for CI/CD
+- [ ] Test 100+ concurrent connections
+- [ ] Add health check endpoint
+
+## managerServer - Backend (Flask)
+- [ ] Create managerServer/api directory structure
+- [ ] Set up Flask app with Python 3.13 + dataclasses
+- [ ] Configure SQLAlchemy with MariaDB connection pooling
+- [ ] Implement /api/v1/auth/login endpoint
+- [ ] Implement /api/v1/auth/logout endpoint
+- [ ] Implement /api/v1/auth/refresh-token endpoint
+- [ ] Implement /api/v1/auth/mfa-setup endpoint
+- [ ] Implement /api/v1/auth/mfa-verify endpoint
+- [ ] Implement JWT token generation and storage
+- [ ] Implement session management (store in sessions table)
+- [ ] Implement /api/v1/users CRUD endpoints
+- [ ] Implement /api/v1/users/{id}/password endpoint
+- [ ] Implement API key generation for users
+- [ ] Implement /api/v1/organizations CRUD endpoints
+- [ ] Implement OU-based user filtering
+- [ ] Implement role-based authorization middleware
+- [ ] Implement /api/v1/statistics/* endpoints
+- [ ] Add date range filtering for statistics
+- [ ] Add device/user search with autocomplete
+- [ ] Implement /api/v1/config/* endpoints
+- [ ] Implement /api/v1/results/upload endpoint
+- [ ] Create gRPC client for testServer communication
+- [ ] Implement 64-char server key for gRPC
+- [ ] Add bcrypt password hashing
+- [ ] Add TOTP (Google Authenticator) support
+- [ ] Add input validation for all endpoints
+- [ ] Add rate limiting
+- [ ] Create managerServer/Dockerfile.api
+- [ ] Create .github/workflows/managerserver-api.yml
+
+## managerServer - Frontend (React)
+- [ ] Create managerServer/frontend directory
+- [ ] Set up React + TypeScript project
+- [ ] Set up Tailwind CSS or Material-UI
+- [ ] Create login page with MFA support
+- [ ] Create dashboard page with overview
+- [ ] Add device/user search with hints
+- [ ] Create statistics page with filtering
+- [ ] Add real-time charts (recharts or chart.js)
+- [ ] Create user management page (CRUD)
+- [ ] Create organization management page
+- [ ] Create user profile page with API key display
+- [ ] Implement role-based UI (hide features based on role)
+- [ ] Add light/dark/auto theme switcher
+- [ ] Store theme preference in localStorage
+- [ ] Add responsive design for mobile
+- [ ] Create managerServer/Dockerfile.frontend
+- [ ] Create .github/workflows/managerserver-frontend.yml
+
+## webClient - Backend (Flask)
+- [ ] Create webClient/api directory structure
+- [ ] Set up Flask app
+- [ ] Implement proxy to testServer
+- [ ] Implement authentication with managerServer
+- [ ] Add session validation via MariaDB
+- [ ] Create /api/test endpoints
+- [ ] Add WebSocket support for real-time updates
+- [ ] Create webClient/Dockerfile.api
+
+## webClient - Frontend (React)
+- [ ] Create webClient/frontend directory
+- [ ] Set up React + TypeScript project
+- [ ] Create test runner UI
+- [ ] Add protocol selection (HTTP/TCP/UDP/ICMP)
+- [ ] Add test configuration forms
+- [ ] Implement real-time line charts (latency over time)
+- [ ] Implement real-time gauges (throughput, jitter, loss)
+- [ ] Add WebSocket client for streaming results
+- [ ] Create login flow (if auth enabled)
+- [ ] Add console logging (no sensitive data)
+- [ ] Create webClient/Dockerfile.frontend
+- [ ] Create .github/workflows/webclient.yml
+
+## containerClient (Python 3.13)
+- [ ] Create containerClient directory structure
+- [ ] Create client.py main script
+- [ ] Implement HTTP tests
+- [ ] Implement TCP tests
+- [ ] Implement UDP tests
+- [ ] Implement ICMP tests
+- [ ] Add multi-threading support (ThreadPoolExecutor)
+- [ ] Implement ENV-based configuration
+- [ ] Add cron-like scheduling (RUN_SECONDS)
+- [ ] Implement result upload to managerServer API
+- [ ] Add CLI argument parsing
+- [ ] Add device auto-detection (OS, hostname, serial)
+- [ ] Create containerClient/Dockerfile
+- [ ] Create .github/workflows/containerclient.yml
+- [ ] Test multi-arch builds (ARM64/AMD64)
+
+## goClient (Go)
+- [ ] Create goClient directory structure
+- [ ] Create cmd/main.go
+- [ ] Implement HTTP tests
+- [ ] Implement TCP tests
+- [ ] Implement UDP tests
+- [ ] Implement ICMP tests
+- [ ] Add YAML configuration support
+- [ ] Implement cron-like scheduling
+- [ ] Add result upload to managerServer API
+- [ ] Implement device auto-detection
+- [ ] Add system tray integration (optional)
+- [ ] Create CLI mode for servers
+- [ ] Create waddleperf-config.example.yaml
+- [ ] Create .github/workflows/goclient.yml
+- [ ] Test cross-platform builds (macOS ARM64/AMD64, Windows AMD64/ARM64, Linux AMD64/ARM64)
+- [ ] Test builds in Docker containers
+
+## Docker Compose & Configuration
+- [ ] Create docker-compose.dev.yml for local development
+- [ ] Add MariaDB Galera service
+- [ ] Add testServer service
+- [ ] Add managerServer API service
+- [ ] Add managerServer frontend service
+- [ ] Add webClient API service
+- [ ] Add webClient frontend service
+- [ ] Add containerClient service
+- [ ] Create .env.example with all required variables
+- [ ] Add health checks for all services
+- [ ] Configure networking between services
+- [ ] Add volume mounts for development
+
+## Testing & Quality
+- [ ] Write unit tests for testServer handlers
+- [ ] Write unit tests for managerServer API
+- [ ] Write unit tests for containerClient
+- [ ] Write unit tests for goClient
+- [ ] Create integration test suite
+- [ ] Test end-to-end authentication flow
+- [ ] Test multi-protocol testing
+- [ ] Load test testServer (100+ concurrent connections)
+- [ ] Test stateless scaling (multiple instances)
+- [ ] Test MariaDB Galera replication
+- [ ] Security audit (input validation, SQL injection, XSS)
+- [ ] Performance benchmarking
+
+## Documentation
+- [ ] Update README.md with new architecture
+- [ ] Create API documentation (OpenAPI/Swagger)
+- [ ] Create deployment guide
+- [ ] Create user guide
+- [ ] Document OU and role management
+- [ ] Document MFA setup
+- [ ] Create troubleshooting guide
+- [ ] Document database schema
+- [ ] Add code comments for complex logic
+
+## CI/CD & Deployment
+- [ ] Test GitHub Actions workflows
+- [ ] Verify multi-arch builds work
+- [ ] Test Docker image tagging (latest, alpha, version tags)
+- [ ] Create Kubernetes manifests (optional)
+- [ ] Create Helm charts (optional)
+- [ ] Set up automated security scanning
+- [ ] Configure automated testing in CI
+- [ ] Create release process documentation

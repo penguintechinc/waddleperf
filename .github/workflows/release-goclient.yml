@@ -1,0 +1,385 @@
+name: Build and Release goClient
+
+on:
+  push:
+    branches:
+      - '**'
+    paths:
+      - 'goClient/**'
+      - '.github/workflows/release-goclient.yml'
+  release:
+    types: [created, published]
+  workflow_dispatch:
+    inputs:
+      version:
+        description: 'Version to build (e.g., 4.0.0)'
+        required: true
+        default: 'dev'
+
+env:
+  REGISTRY: ghcr.io
+  IMAGE_NAME: ${{ github.repository_owner }}/waddleperf-goclient
+
+jobs:
+  build-binaries:
+    name: Build goClient Binaries
+    runs-on: ubuntu-latest
+    outputs:
+      version: ${{ steps.version.outputs.VERSION }}
+      binary_suffix: ${{ steps.version.outputs.BINARY_SUFFIX }}
+      container_tags: ${{ steps.version.outputs.CONTAINER_TAGS }}
+      is_release: ${{ steps.version.outputs.IS_RELEASE }}
+
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+      with:
+        fetch-depth: 0
+
+    - name: Set version and tags
+      id: version
+      run: |
+        # Determine version suffix based on branch/event
+        if [[ "${{ github.event_name }}" == "release" ]]; then
+          # Release: use tag version (e.g., v4.0.0 -> 4.0.0)
+          VERSION="${GITHUB_REF#refs/tags/}"
+          VERSION="${VERSION#v}"  # Remove 'v' prefix if present
+          BINARY_SUFFIX="-${VERSION}"
+          CONTAINER_TAGS="latest,${VERSION}"
+        elif [[ "${{ github.event_name }}" == "workflow_dispatch" ]]; then
+          # Manual dispatch: use input version
+          VERSION="${{ github.event.inputs.version }}"
+          BINARY_SUFFIX="-${VERSION}"
+          CONTAINER_TAGS="${VERSION}"
+        elif [[ "${{ github.ref }}" == "refs/heads/main" ]]; then
+          # Main branch: beta
+          VERSION="beta"
+          BINARY_SUFFIX="-beta"
+          CONTAINER_TAGS="beta"
+        else
+          # Other branches: prototype
+          VERSION="prototype-${GITHUB_SHA::8}"
+          BINARY_SUFFIX="-prototype"
+          CONTAINER_TAGS="prototype"
+        fi
+
+        echo "VERSION=${VERSION}" >> $GITHUB_OUTPUT
+        echo "BINARY_SUFFIX=${BINARY_SUFFIX}" >> $GITHUB_OUTPUT
+        echo "CONTAINER_TAGS=${CONTAINER_TAGS}" >> $GITHUB_OUTPUT
+        echo "IS_RELEASE=${{ github.event_name == 'release' }}" >> $GITHUB_OUTPUT
+
+        echo "Building version: ${VERSION}"
+        echo "Binary suffix: ${BINARY_SUFFIX}"
+        echo "Container tags: ${CONTAINER_TAGS}"
+
+    - name: Set up Docker Buildx
+      uses: docker/setup-buildx-action@v3
+
+    - name: Build Docker builder image
+      working-directory: ./goClient
+      run: |
+        echo "Building goClient builder image..."
+        docker build -f Dockerfile.builder -t waddleperf-goclient-builder .
+
+    - name: Build binaries for all platforms
+      working-directory: ./goClient
+      run: |
+        echo "Building goClient binaries..."
+        mkdir -p dist
+
+        docker run --rm \
+          -v $(pwd)/dist:/workspace/dist \
+          -e HOME=/tmp \
+          -e VERSION="${{ steps.version.outputs.VERSION }}" \
+          waddleperf-goclient-builder
+
+        echo "Build complete! Generated files:"
+        ls -lh dist/
+
+    - name: Rename binaries with version suffix
+      working-directory: ./goClient/dist
+      run: |
+        echo "Renaming binaries with suffix: ${{ steps.version.outputs.BINARY_SUFFIX }}"
+
+        # Rename binaries
+        if [[ -f "waddleperf-linux-amd64" ]]; then
+          mv waddleperf-linux-amd64 "waddleperf-linux-amd64${{ steps.version.outputs.BINARY_SUFFIX }}"
+        fi
+
+        if [[ -f "waddleperf-linux-arm64" ]]; then
+          mv waddleperf-linux-arm64 "waddleperf-linux-arm64${{ steps.version.outputs.BINARY_SUFFIX }}"
+        fi
+
+        if [[ -f "waddleperf-windows-amd64.exe" ]]; then
+          mv waddleperf-windows-amd64.exe "waddleperf-windows-amd64${{ steps.version.outputs.BINARY_SUFFIX }}.exe"
+        fi
+
+        # Regenerate checksums with new names
+        sha256sum waddleperf-* > SHA256SUMS
+
+        echo "Renamed binaries:"
+        ls -lh waddleperf-*
+
+    - name: Create distribution packages
+      working-directory: ./goClient/dist
+      run: |
+        echo "Creating distribution packages..."
+        SUFFIX="${{ steps.version.outputs.BINARY_SUFFIX }}"
+
+        # Windows - create zip
+        if [[ -f "waddleperf-windows-amd64${SUFFIX}.exe" ]]; then
+          zip "waddleperf-windows-amd64${SUFFIX}.zip" "waddleperf-windows-amd64${SUFFIX}.exe"
+          echo "✅ Created waddleperf-windows-amd64${SUFFIX}.zip"
+        fi
+
+        # Linux AMD64 - create tar.gz
+        if [[ -f "waddleperf-linux-amd64${SUFFIX}" ]]; then
+          tar czf "waddleperf-linux-amd64${SUFFIX}.tar.gz" "waddleperf-linux-amd64${SUFFIX}"
+          echo "✅ Created waddleperf-linux-amd64${SUFFIX}.tar.gz"
+        fi
+
+        # Linux ARM64 - create tar.gz
+        if [[ -f "waddleperf-linux-arm64${SUFFIX}" ]]; then
+          tar czf "waddleperf-linux-arm64${SUFFIX}.tar.gz" "waddleperf-linux-arm64${SUFFIX}"
+          echo "✅ Created waddleperf-linux-arm64${SUFFIX}.tar.gz"
+        fi
+
+        echo ""
+        echo "📦 Distribution packages:"
+        ls -lh *.tar.gz *.zip SHA256SUMS 2>/dev/null || ls -lh
+
+    - name: Upload binaries as artifacts
+      uses: actions/upload-artifact@v4
+      with:
+        name: goclient-binaries-${{ steps.version.outputs.VERSION }}
+        path: |
+          goClient/dist/waddleperf-*
+          goClient/dist/SHA256SUMS
+        retention-days: 90
+
+    - name: Upload packages as artifacts
+      uses: actions/upload-artifact@v4
+      with:
+        name: goclient-packages-${{ steps.version.outputs.VERSION }}
+        path: |
+          goClient/dist/*.tar.gz
+          goClient/dist/*.zip
+          goClient/dist/SHA256SUMS
+        retention-days: 90
+
+    - name: Upload to GitHub Release
+      if: github.event_name == 'release'
+      uses: softprops/action-gh-release@v2
+      with:
+        files: |
+          goClient/dist/*.tar.gz
+          goClient/dist/*.zip
+          goClient/dist/SHA256SUMS
+        fail_on_unmatched_files: true
+        generate_release_notes: true
+        body: |
+          ## goClient Binaries
+
+          Built with Docker using all necessary dependencies for GUI support.
+
+          ### Downloads
+          - **Linux AMD64**: `waddleperf-linux-amd64-${{ steps.version.outputs.VERSION }}.tar.gz` (with GUI/systray)
+          - **Linux ARM64**: `waddleperf-linux-arm64-${{ steps.version.outputs.VERSION }}.tar.gz` (no GUI)
+          - **Windows AMD64**: `waddleperf-windows-amd64-${{ steps.version.outputs.VERSION }}.zip` (with GUI/systray)
+
+          ### Installation
+
+          **Linux:**
+          ```bash
+          tar xzf waddleperf-linux-amd64-${{ steps.version.outputs.VERSION }}.tar.gz
+          chmod +x waddleperf-linux-amd64-${{ steps.version.outputs.VERSION }}
+          sudo mv waddleperf-linux-amd64-${{ steps.version.outputs.VERSION }} /usr/local/bin/waddleperf
+          ```
+
+          **Windows:**
+          ```cmd
+          unzip waddleperf-windows-amd64-${{ steps.version.outputs.VERSION }}.zip
+          move waddleperf-windows-amd64-${{ steps.version.outputs.VERSION }}.exe C:\Windows\System32\waddleperf.exe
+          ```
+
+          ### Verification
+          ```bash
+          sha256sum -c SHA256SUMS
+          waddleperf version
+          ```
+
+          **Version**: ${{ steps.version.outputs.VERSION }}
+          **Build Time**: ${{ github.event.release.created_at }}
+      env:
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+  build-container:
+    name: Build and Push Container
+    runs-on: ubuntu-latest
+    needs: build-binaries
+    if: always() && needs.build-binaries.result == 'success'
+
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+
+    - name: Download Linux AMD64 binary artifact
+      uses: actions/download-artifact@v4
+      with:
+        name: goclient-binaries-${{ needs.build-binaries.outputs.version }}
+        path: ./goClient/dist
+
+    - name: Set up Docker Buildx
+      uses: docker/setup-buildx-action@v3
+      with:
+        platforms: linux/amd64,linux/arm64
+
+    - name: Login to GitHub Container Registry
+      uses: docker/login-action@v3
+      with:
+        registry: ${{ env.REGISTRY }}
+        username: ${{ github.actor }}
+        password: ${{ secrets.GITHUB_TOKEN }}
+
+    - name: Prepare binaries for Docker
+      working-directory: ./goClient
+      run: |
+        echo "Preparing binaries for Docker build..."
+        mkdir -p binaries
+
+        # Extract binaries from archives
+        SUFFIX="${{ needs.build-binaries.outputs.binary_suffix }}"
+
+        if [[ -f "dist/waddleperf-linux-amd64${SUFFIX}.tar.gz" ]]; then
+          tar xzf "dist/waddleperf-linux-amd64${SUFFIX}.tar.gz" -C binaries/
+          mv "binaries/waddleperf-linux-amd64${SUFFIX}" binaries/waddleperf-linux-amd64
+        elif [[ -f "dist/waddleperf-linux-amd64${SUFFIX}" ]]; then
+          cp "dist/waddleperf-linux-amd64${SUFFIX}" binaries/waddleperf-linux-amd64
+        fi
+
+        if [[ -f "dist/waddleperf-linux-arm64${SUFFIX}.tar.gz" ]]; then
+          tar xzf "dist/waddleperf-linux-arm64${SUFFIX}.tar.gz" -C binaries/
+          mv "binaries/waddleperf-linux-arm64${SUFFIX}" binaries/waddleperf-linux-arm64
+        elif [[ -f "dist/waddleperf-linux-arm64${SUFFIX}" ]]; then
+          cp "dist/waddleperf-linux-arm64${SUFFIX}" binaries/waddleperf-linux-arm64
+        fi
+
+        echo "Binaries prepared:"
+        ls -lh binaries/
+
+    - name: Create runtime Dockerfile
+      working-directory: ./goClient
+      run: |
+        cat > Dockerfile.runtime << 'EOF'
+        FROM alpine:3.19
+
+        # Install runtime dependencies
+        RUN apk add --no-cache \
+            ca-certificates \
+            tzdata \
+            curl \
+            iputils \
+            bind-tools \
+            traceroute \
+            tcptraceroute \
+            libcap \
+            && adduser -D -u 1000 waddleperf
+
+        # Copy pre-built binary for target architecture
+        ARG TARGETARCH
+        COPY binaries/waddleperf-linux-${TARGETARCH} /usr/local/bin/waddleperf
+        RUN chmod +x /usr/local/bin/waddleperf && \
+            setcap cap_net_raw+ep /usr/bin/traceroute && \
+            setcap cap_net_raw+ep /usr/bin/tcptraceroute
+
+        USER waddleperf
+        WORKDIR /home/waddleperf
+
+        HEALTHCHECK --interval=30s --timeout=10s --start-period=5s --retries=3 \
+          CMD waddleperf version || exit 1
+
+        ENTRYPOINT ["/usr/local/bin/waddleperf"]
+        CMD ["--help"]
+        EOF
+
+    - name: Prepare Docker tags
+      id: docker_tags
+      run: |
+        TAGS="${{ needs.build-binaries.outputs.container_tags }}"
+        echo "Raw tags: $TAGS"
+
+        # Convert comma-separated string to newline-separated with full image name
+        TAG_LIST=""
+        IFS=',' read -ra TAG_ARRAY <<< "$TAGS"
+        for tag in "${TAG_ARRAY[@]}"; do
+          TAG_LIST="${TAG_LIST}${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:${tag}"$'\n'
+        done
+
+        echo "Formatted tags:"
+        echo "$TAG_LIST"
+
+        # Set output (use delimiter to handle multiline)
+        echo "tags<<EOF" >> $GITHUB_OUTPUT
+        echo "$TAG_LIST" >> $GITHUB_OUTPUT
+        echo "EOF" >> $GITHUB_OUTPUT
+
+    - name: Build and push Docker image
+      uses: docker/build-push-action@v5
+      with:
+        context: ./goClient
+        file: ./goClient/Dockerfile.runtime
+        platforms: linux/amd64,linux/arm64
+        push: true
+        tags: ${{ steps.docker_tags.outputs.tags }}
+        labels: |
+          org.opencontainers.image.title=WaddlePerf goClient
+          org.opencontainers.image.description=Network performance testing client
+          org.opencontainers.image.vendor=Penguin Technologies Inc.
+          org.opencontainers.image.version=${{ needs.build-binaries.outputs.version }}
+          org.opencontainers.image.created=${{ github.event.repository.updated_at }}
+          org.opencontainers.image.revision=${{ github.sha }}
+          org.opencontainers.image.licenses=MIT
+        cache-from: type=gha
+        cache-to: type=gha,mode=max
+
+  summary:
+    name: Build Summary
+    runs-on: ubuntu-latest
+    needs: [build-binaries, build-container]
+    if: always()
+
+    steps:
+    - name: Build summary
+      run: |
+        echo "## 🐧 goClient Build Summary" >> $GITHUB_STEP_SUMMARY
+        echo "" >> $GITHUB_STEP_SUMMARY
+        echo "| Component | Status |" >> $GITHUB_STEP_SUMMARY
+        echo "|-----------|--------|" >> $GITHUB_STEP_SUMMARY
+        echo "| Binaries | ${{ needs.build-binaries.result }} |" >> $GITHUB_STEP_SUMMARY
+        echo "| Container | ${{ needs.build-container.result }} |" >> $GITHUB_STEP_SUMMARY
+        echo "" >> $GITHUB_STEP_SUMMARY
+        echo "**Version:** ${{ needs.build-binaries.outputs.version }}" >> $GITHUB_STEP_SUMMARY
+        echo "**Binary Suffix:** \`${{ needs.build-binaries.outputs.binary_suffix }}\`" >> $GITHUB_STEP_SUMMARY
+        echo "**Container Tags:** \`${{ needs.build-binaries.outputs.container_tags }}\`" >> $GITHUB_STEP_SUMMARY
+        echo "**Event:** ${{ github.event_name }}" >> $GITHUB_STEP_SUMMARY
+        echo "**Ref:** ${{ github.ref }}" >> $GITHUB_STEP_SUMMARY
+        echo "" >> $GITHUB_STEP_SUMMARY
+
+        if [[ "${{ github.event_name }}" == "release" ]]; then
+          echo "### ✅ Release Assets" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "Binaries attached to GitHub Release: [${{ github.ref }}](${{ github.server_url }}/${{ github.repository }}/releases)" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+        fi
+
+        echo "### 📦 Binary Downloads" >> $GITHUB_STEP_SUMMARY
+        echo "" >> $GITHUB_STEP_SUMMARY
+        echo "Artifacts are available in the [Actions run](${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }})" >> $GITHUB_STEP_SUMMARY
+        echo "" >> $GITHUB_STEP_SUMMARY
+
+        echo "### 🐳 Docker Image" >> $GITHUB_STEP_SUMMARY
+        echo "" >> $GITHUB_STEP_SUMMARY
+        FIRST_TAG=$(echo "${{ needs.build-binaries.outputs.container_tags }}" | cut -d',' -f1)
+        echo "\`\`\`bash" >> $GITHUB_STEP_SUMMARY
+        echo "docker pull ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:${FIRST_TAG}" >> $GITHUB_STEP_SUMMARY
+        echo "\`\`\`" >> $GITHUB_STEP_SUMMARY

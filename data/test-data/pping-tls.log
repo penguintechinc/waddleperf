@@ -1,4 +1,0 @@
-Ping google.com (443):
-
-	sent = 4, ok = 4, failed = 0 (0%)
-	min = 26 ms, max = 27 ms, avg = 26 ms
