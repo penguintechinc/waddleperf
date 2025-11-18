@@ -196,6 +196,9 @@ services:
       context: ./containerClient
       dockerfile: Dockerfile
     container_name: waddleperf-containerclient
+    cap_add:
+      - NET_RAW
+      - NET_ADMIN
     environment:
       AUTH_TYPE: ${AUTH_TYPE:-apikey}
       AUTH_APIKEY: ${AUTH_APIKEY:-test-api-key}

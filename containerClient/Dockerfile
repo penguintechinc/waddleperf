@@ -31,7 +31,7 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     tzdata \
     && rm -rf /var/lib/apt/lists/* \
     && setcap cap_net_raw+ep /usr/bin/traceroute.db \
-    && setcap cap_net_raw+ep /usr/sbin/tcptraceroute
+    && setcap cap_net_raw+ep /usr/bin/tcptraceroute.mt
 
 # Copy installed packages from builder
 COPY --from=builder /install /usr/local

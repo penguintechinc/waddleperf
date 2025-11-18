@@ -97,6 +97,14 @@ python3 --version
 
 ---
 
+## Security Note
+
+WaddlePerf requires specific Linux network capabilities (`NET_RAW`, `NET_ADMIN`) for traceroute and ICMP ping functionality. These capabilities are granted only to specific binaries within containers that run as non-root users, following the principle of least privilege.
+
+**For detailed security information**, see [SECURITY.md - Network Capabilities](SECURITY.md#network-capabilities).
+
+---
+
 ## Quick Start (Docker Compose)
 
 This is the fastest way to get WaddlePerf running for development or testing.
@@ -616,6 +624,14 @@ spec:
       containers:
       - name: testserver
         image: ghcr.io/penguincloud/waddleperf-testserver:latest
+        securityContext:
+          capabilities:
+            add:
+              - NET_RAW
+              - NET_ADMIN
+          runAsUser: 1000
+          runAsNonRoot: true
+          allowPrivilegeEscalation: false
         env:
         - name: DB_HOST
           value: mariadb-galera

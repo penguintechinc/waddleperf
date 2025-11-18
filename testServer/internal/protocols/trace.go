@@ -99,9 +99,11 @@ func TestHTTPTrace(req HTTPTraceRequest) (*TraceResult, error) {
 	portStr := fmt.Sprintf("%d", port)
 	var cmd *exec.Cmd
 	if _, err := exec.LookPath("tcptraceroute"); err == nil {
-		cmd = exec.Command("tcptraceroute", "-n", "-q", "1", "-w", "1", hostname, portStr)
+		// tcptraceroute: -n (no DNS), -q 1 (1 query per hop), -w 3 (3 sec timeout), -m 30 (max 30 hops)
+		cmd = exec.Command("tcptraceroute", "-n", "-q", "1", "-w", "3", "-m", "30", hostname, portStr)
 	} else {
-		cmd = exec.Command("traceroute", "-T", "-n", "-q", "1", "-w", "1", "-p", portStr, "-m", "15", hostname)
+		// traceroute -T (TCP), -n (no DNS), -q 1, -w 3, -p (port), -m 30 (max hops)
+		cmd = exec.Command("traceroute", "-T", "-n", "-q", "1", "-w", "3", "-p", portStr, "-m", "30", hostname)
 	}
 
 	var stdout, stderr bytes.Buffer
@@ -125,8 +127,15 @@ func TestHTTPTrace(req HTTPTraceRequest) (*TraceResult, error) {
 		timeout = 30 * time.Second
 	}
 
+	// Force HTTP/1.1 by creating a custom transport (prevents HTTP/2)
+	transport := &http.Transport{
+		DisableKeepAlives: true, // Close connection after each request
+		// By not setting TLSClientConfig.NextProtos, we prevent HTTP/2 negotiation
+	}
+
 	client := &http.Client{
-		Timeout: timeout,
+		Timeout:   timeout,
+		Transport: transport,
 		CheckRedirect: func(req *http.Request, via []*http.Request) error {
 			return http.ErrUseLastResponse // Don't follow redirects
 		},
@@ -141,7 +150,12 @@ func TestHTTPTrace(req HTTPTraceRequest) (*TraceResult, error) {
 		return result, err
 	}
 
+	// Force HTTP/1.1 (prevents HTTP/2)
+	httpReq.Proto = "HTTP/1.1"
+	httpReq.ProtoMajor = 1
+	httpReq.ProtoMinor = 1
 	httpReq.Header.Set("User-Agent", "WaddlePerf-TestServer/1.0")
+	httpReq.Header.Set("Connection", "close")
 
 	resp, err := client.Do(httpReq)
 	if err != nil {
@@ -301,10 +315,10 @@ func TestTCPTrace(req TCPTraceRequest) (*TraceResult, error) {
 	// Use tcptraceroute if available, otherwise use traceroute with TCP
 	var cmd *exec.Cmd
 	if _, err := exec.LookPath("tcptraceroute"); err == nil {
-		cmd = exec.Command("tcptraceroute", "-n", "-q", "1", "-w", "1", host, portStr)
+		cmd = exec.Command("tcptraceroute", "-n", "-q", "1", "-w", "3", "-m", "30", host, portStr)
 	} else {
 		// Fallback to traceroute with TCP (requires root on some systems)
-		cmd = exec.Command("traceroute", "-T", "-n", "-q", "1", "-w", "1", "-p", portStr, host)
+		cmd = exec.Command("traceroute", "-T", "-n", "-q", "1", "-w", "3", "-p", portStr, "-m", "30", host)
 	}
 
 	var stdout, stderr bytes.Buffer
