@@ -485,6 +485,152 @@ After the test completes, you'll see:
 
 ---
 
+### Trace Tests
+
+The Trace Tests tab provides advanced network path tracing capabilities, combining traceroute functionality with protocol-specific analysis.
+
+**Available Trace Tests:**
+- **HTTP Trace**: Network path + HTTP request analysis
+- **TCP Trace**: TCP-based traceroute to specific ports
+- **ICMP Traceroute**: Traditional ICMP-based route tracing
+
+#### Running HTTP Trace Tests
+
+HTTP Trace tests show the complete network path your HTTP request takes, plus detailed HTTP response analysis.
+
+**To run an HTTP trace:**
+
+1. Navigate to **Trace Tests** tab
+2. Select **HTTP Trace** test type
+3. Fill in the form:
+   - **Target**: Full URL (e.g., https://www.google.com)
+   - **Port**: Optional (defaults to 443 for HTTPS, 80 for HTTP)
+   - **Timeout**: Seconds to wait (default: 30)
+4. Click **Run Test**
+
+**HTTP Trace Results Include:**
+- **Network Path**: Each router/hop from your location to the destination
+- **Hop Details**: IP address and latency for each hop
+- **HTTP Response**:
+  - Status code (200, 404, etc.)
+  - HTTP version (HTTP/1.1, HTTP/2)
+  - Response headers
+  - TLS information (if HTTPS)
+- **Latency Breakdown**:
+  - Total latency (network + HTTP)
+  - HTTP request latency only
+- **Traceroute Method**: Shows whether TCP or ICMP traceroute was used
+
+**View Detailed Results:**
+1. After test completes, click **View Detailed Results**
+2. Modal shows:
+   - **Left column**: Summary (target, status, latency, total hops)
+   - **Right column**: Complete JSON with hop-by-hop details
+3. Click **Download JSON** to export full results
+
+**Use Cases:**
+- Diagnose slow page loads by identifying network bottlenecks
+- Verify CDN routing and edge server locations
+- Compare routes to different geographic locations
+- Troubleshoot HTTPS/TLS connection issues
+- Analyze the impact of network hops on total latency
+
+#### Running TCP Trace Tests
+
+TCP Trace uses TCP packets to trace the network path to a specific port, useful for testing connectivity to services like SSH, HTTPS, or custom applications.
+
+**To run a TCP trace:**
+
+1. Select **TCP Trace** test type
+2. Fill in the form:
+   - **Target**: Hostname or IP (e.g., example.com)
+   - **Port**: Service port (e.g., 22 for SSH, 443 for HTTPS)
+   - **Timeout**: Seconds to wait (default: 30)
+3. Click **Run Test**
+
+**TCP Trace Results Include:**
+- **Network Path**: All hops along the TCP route
+- **Target Information**:
+  - Resolved IP address
+  - Port number
+  - Connection status
+- **Hop Details**: Each intermediate router with latency
+- **Total Latency**: End-to-end connection time
+
+**Use Cases:**
+- Test connectivity to specific services (SSH, database, API)
+- Verify firewall rules aren't blocking traffic
+- Identify routing issues for specific ports
+- Compare TCP routing vs ICMP routing
+
+#### Running ICMP Traceroute Tests
+
+ICMP Traceroute uses ICMP packets to trace the network path, providing the most traditional traceroute functionality.
+
+**To run an ICMP traceroute:**
+
+1. Select **ICMP Traceroute** test type
+2. Fill in the form:
+   - **Target**: Hostname or IP (e.g., www.google.com)
+   - **Timeout**: Seconds to wait (default: 30)
+3. Click **Run Test**
+
+**ICMP Traceroute Results Include:**
+- **Network Path**: All hops to the destination
+- **Hop Details**:
+  - Hop number
+  - IP address
+  - Latency for each hop
+  - Timeout indicators (* for unresponsive hops)
+- **Total Hops**: Number of routers traversed
+- **Target IP**: Resolved destination address
+
+**Use Cases:**
+- General network path discovery
+- Identify network latency contributors
+- Verify routing changes
+- Compare routes over time
+
+#### Understanding Trace Test Results
+
+**Summary View** (shown automatically):
+- Target URL/hostname
+- Overall latency
+- Success/failure status
+- Total hop count
+- Error messages (if any)
+
+**Detailed View** (click "View Detailed Results"):
+- **Summary Column**:
+  - Target information
+  - HTTP status (for HTTP traces)
+  - Total latency
+  - Hop count
+- **Details Column**:
+  - Complete JSON output
+  - Hop-by-hop breakdown with:
+    - Hop number
+    - IP address
+    - Hostname (if available)
+    - Latency per hop
+    - Raw output
+  - HTTP-specific data (for HTTP traces):
+    - Status code and message
+    - HTTP version
+    - Response headers
+    - TLS version and cipher (for HTTPS)
+  - Traceroute metadata:
+    - Command used
+    - Method (TCP vs ICMP)
+    - Raw traceroute output
+
+**Downloading Results:**
+- Click **Download JSON** in the detailed view
+- File includes all test data in structured JSON format
+- Filename includes target and timestamp for easy organization
+
+---
+
 ### Real-Time Monitoring
 
 The webClient uses WebSocket for real-time test updates.

@@ -292,6 +292,249 @@ curl -X POST http://localhost:8080/api/v1/test/icmp \
 
 ---
 
+### HTTP Trace
+
+**Endpoint**: `POST /api/v1/test/http_trace`
+**Authentication**: Required (JWT or API Key)
+**Description**: Execute HTTP trace test - combines network path tracing with HTTP request analysis
+
+#### Request Parameters
+
+| Parameter | Type | Required | Description |
+|-----------|------|----------|-------------|
+| target | string | Yes | Target URL (e.g., https://www.google.com) |
+| port | integer | No | Port number (default: 443 for HTTPS, 80 for HTTP) |
+| timeout | integer | No | Timeout in seconds (default: 30) |
+
+#### Request Example
+```bash
+curl -X POST http://localhost:8080/api/v1/test/http_trace \
+  -H "Authorization: Bearer your-api-key-here" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "target": "https://www.google.com",
+    "timeout": 30
+  }'
+```
+
+#### Response Example
+```json
+{
+  "target": "https://www.google.com",
+  "protocol": "http_trace",
+  "success": true,
+  "latency_ms": 156.78,
+  "hops": [
+    "Hop 1: 192.168.1.1 1.234 ms",
+    "Hop 2: 10.0.0.1 5.678 ms",
+    "HTTP Destination: HTTP/1.1 200 OK (https://www.google.com)"
+  ],
+  "route_info": "HTTP trace completed with 2 network hops",
+  "raw_results": {
+    "status_code": 200,
+    "status": "200 OK",
+    "proto": "HTTP/1.1",
+    "url": "https://www.google.com",
+    "latency_ms": 156.78,
+    "http_latency_ms": 45.23,
+    "hop_count": 2,
+    "total_hops": 3,
+    "traceroute_method": "TCP",
+    "detailed_hops": [
+      {
+        "hop_number": 1,
+        "ip_address": "192.168.1.1",
+        "latency": "1.234 ms",
+        "raw_output": "192.168.1.1 1.234 ms"
+      },
+      {
+        "hop_number": 2,
+        "ip_address": "10.0.0.1",
+        "latency": "5.678 ms",
+        "raw_output": "10.0.0.1 5.678 ms"
+      }
+    ],
+    "http_details": {
+      "http_version": "HTTP/1.1",
+      "status": "200 OK",
+      "status_code": 200,
+      "url": "https://www.google.com",
+      "latency_ms": 45.23
+    }
+  }
+}
+```
+
+---
+
+### TCP Trace
+
+**Endpoint**: `POST /api/v1/test/tcp_trace`
+**Authentication**: Required (JWT or API Key)
+**Description**: Execute TCP traceroute to trace network path using TCP packets
+
+#### Request Parameters
+
+| Parameter | Type | Required | Description |
+|-----------|------|----------|-------------|
+| target | string | Yes | Hostname or IP to trace |
+| port | integer | No | Port number (default: 22 for SSH) |
+| timeout | integer | No | Timeout in seconds (default: 30) |
+
+#### Request Example
+```bash
+curl -X POST http://localhost:8080/api/v1/test/tcp_trace \
+  -H "Authorization: Bearer your-api-key-here" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "target": "example.com",
+    "port": 443,
+    "timeout": 30
+  }'
+```
+
+#### Response Example
+```json
+{
+  "target": "example.com:443",
+  "protocol": "tcp_trace",
+  "success": true,
+  "latency_ms": 234.56,
+  "hops": [
+    "Hop 1: 192.168.1.1 1.234 ms",
+    "Hop 2: 10.0.0.1 5.678 ms",
+    "Hop 3: 172.16.0.1 12.345 ms"
+  ],
+  "route_info": "TCP trace to example.com:443 completed with 3 hops",
+  "raw_results": {
+    "target_host": "example.com",
+    "target_port": "443",
+    "target_ip": "93.184.216.34",
+    "latency_ms": 234.56,
+    "hop_count": 3,
+    "command": "tcptraceroute",
+    "detailed_hops": [
+      {
+        "hop_number": 1,
+        "ip_address": "192.168.1.1",
+        "latency": "1.234 ms",
+        "raw_output": "192.168.1.1 1.234 ms"
+      }
+    ]
+  }
+}
+```
+
+---
+
+### UDP Trace
+
+**Endpoint**: `POST /api/v1/test/udp_trace`
+**Authentication**: Required (JWT or API Key)
+**Description**: Execute UDP traceroute to trace network path using UDP packets
+
+#### Request Parameters
+
+| Parameter | Type | Required | Description |
+|-----------|------|----------|-------------|
+| target | string | Yes | Hostname or IP to trace |
+| port | integer | No | Port number (default: 53 for DNS) |
+| timeout | integer | No | Timeout in seconds (default: 30) |
+
+#### Request Example
+```bash
+curl -X POST http://localhost:8080/api/v1/test/udp_trace \
+  -H "Authorization: Bearer your-api-key-here" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "target": "8.8.8.8",
+    "port": 53,
+    "timeout": 30
+  }'
+```
+
+#### Response Example
+```json
+{
+  "target": "8.8.8.8",
+  "protocol": "udp_trace",
+  "success": true,
+  "latency_ms": 178.90,
+  "hops": [
+    "Hop 1: 192.168.1.1 1.234 ms",
+    "Hop 2: 10.0.0.1 5.678 ms"
+  ],
+  "route_info": "UDP trace to 8.8.8.8:53 completed with 2 hops",
+  "raw_results": {
+    "target": "8.8.8.8",
+    "target_port": 53,
+    "target_ip": "8.8.8.8",
+    "latency_ms": 178.90,
+    "hop_count": 2,
+    "max_hops": 30
+  }
+}
+```
+
+---
+
+### ICMP Traceroute
+
+**Endpoint**: `POST /api/v1/test/traceroute`
+**Authentication**: Required (JWT or API Key)
+**Description**: Execute ICMP traceroute to trace network path using ICMP packets
+
+#### Request Parameters
+
+| Parameter | Type | Required | Description |
+|-----------|------|----------|-------------|
+| target | string | Yes | Hostname or IP to trace |
+| timeout | integer | No | Timeout in seconds (default: 30) |
+
+#### Request Example
+```bash
+curl -X POST http://localhost:8080/api/v1/test/traceroute \
+  -H "Authorization: Bearer your-api-key-here" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "target": "www.google.com",
+    "timeout": 30
+  }'
+```
+
+#### Response Example
+```json
+{
+  "target": "www.google.com",
+  "protocol": "traceroute",
+  "success": true,
+  "latency_ms": 145.23,
+  "hops": [
+    "Hop 1: 192.168.1.1 1.234 ms",
+    "Hop 2: 10.0.0.1 5.678 ms",
+    "Hop 3: 172.16.0.1 12.345 ms"
+  ],
+  "route_info": "Traceroute completed with 3 hops",
+  "raw_results": {
+    "target": "www.google.com",
+    "target_ip": "142.250.80.36",
+    "latency_ms": 145.23,
+    "hop_count": 3,
+    "max_hops": 30,
+    "detailed_hops": [
+      {
+        "hop_number": 1,
+        "ip_address": "192.168.1.1",
+        "latency": "1.234 ms",
+        "raw_output": "192.168.1.1 1.234 ms"
+      }
+    ]
+  }
+}
+```
+
+---
+
 ## managerServer API
 
 Management backend for authentication and administration.

@@ -95,15 +95,17 @@ func TestHTTPTrace(req HTTPTraceRequest) (*TraceResult, error) {
 
 	startTime := time.Now()
 
-	// First, run TCP traceroute to find the network path
+	// First, try TCP traceroute to the actual port we're testing
 	portStr := fmt.Sprintf("%d", port)
 	var cmd *exec.Cmd
+	var usedTCPTrace bool
+
 	if _, err := exec.LookPath("tcptraceroute"); err == nil {
-		// tcptraceroute: -n (no DNS), -q 1 (1 query per hop), -w 3 (3 sec timeout), -m 30 (max 30 hops)
 		cmd = exec.Command("tcptraceroute", "-n", "-q", "1", "-w", "3", "-m", "30", hostname, portStr)
+		usedTCPTrace = true
 	} else {
-		// traceroute -T (TCP), -n (no DNS), -q 1, -w 3, -p (port), -m 30 (max hops)
 		cmd = exec.Command("traceroute", "-T", "-n", "-q", "1", "-w", "3", "-p", portStr, "-m", "30", hostname)
+		usedTCPTrace = true
 	}
 
 	var stdout, stderr bytes.Buffer
@@ -119,6 +121,26 @@ func TestHTTPTrace(req HTTPTraceRequest) (*TraceResult, error) {
 
 	// Parse network hops
 	networkHops := parseTracerouteDetailed(tracerouteOutput)
+
+	// If TCP traceroute failed or gave poor results (less than 2 hops), fall back to ICMP
+	if len(networkHops) < 2 && usedTCPTrace {
+		// Fall back to ICMP traceroute
+		cmd = exec.Command("traceroute", "-n", "-q", "1", "-w", "3", "-m", "30", hostname)
+
+		stdout.Reset()
+		stderr.Reset()
+		cmd.Stdout = &stdout
+		cmd.Stderr = &stderr
+
+		_ = cmd.Run()
+
+		tracerouteOutput = stdout.String()
+		if tracerouteOutput == "" {
+			tracerouteOutput = stderr.String()
+		}
+
+		networkHops = parseTracerouteDetailed(tracerouteOutput)
+	}
 
 	// Now make the actual HTTP request to the final destination
 	fullURL := fmt.Sprintf("%s://%s", scheme, target)
@@ -216,6 +238,17 @@ func TestHTTPTrace(req HTTPTraceRequest) (*TraceResult, error) {
 	result.RawResults["total_hops"] = len(hops)
 	result.RawResults["traceroute_output"] = tracerouteOutput
 	result.RawResults["url"] = fullURL
+
+	// Add which traceroute method was used
+	if usedTCPTrace {
+		if len(networkHops) < 2 {
+			result.RawResults["traceroute_method"] = "ICMP (TCP fallback)"
+		} else {
+			result.RawResults["traceroute_method"] = "TCP"
+		}
+	} else {
+		result.RawResults["traceroute_method"] = "ICMP"
+	}
 
 	// Create detailed hops for HTTP trace - include network hops + final HTTP destination
 	var detailedHops []HopDetail
