@@ -31,6 +31,9 @@ services:
       context: ./testServer
       dockerfile: Dockerfile
     container_name: waddleperf-testserver
+    cap_add:
+      - NET_RAW
+      - NET_ADMIN
     environment:
       MANAGER_KEY: ${MANAGER_KEY:-0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef}
       MANAGER_URL: grpc://managementserver-api:50051

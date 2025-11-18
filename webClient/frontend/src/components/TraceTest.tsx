@@ -31,6 +31,7 @@ function TraceTest({ isAuthenticated }: TraceTestProps) {
   const [isRunning, setIsRunning] = useState(false)
   const [result, setResult] = useState<TraceResult | null>(null)
   const [validationError, setValidationError] = useState<string>('')
+  const [showDetailedResults, setShowDetailedResults] = useState(false)
 
   const defaultPorts: Record<string, string> = {
     http: '443',
@@ -89,11 +90,13 @@ function TraceTest({ isAuthenticated }: TraceTestProps) {
     setIsRunning(true)
 
     try {
+      const sessionId = sessionStorage.getItem('session_id')
       const testData = {
         test_type: testType === 'http' ? 'http_trace' : testType === 'tcp' ? 'tcp_trace' : 'traceroute',
         target: sanitizeString(target, MAX_TARGET_LENGTH),
         port: port && testType !== 'icmp' ? parseInt(port, 10) : undefined,
         timeout: parseInt(timeout, 10),
+        session_id: sessionId || undefined,
       }
 
       console.log('[TraceTest] Submitting trace test:', testData)
@@ -115,6 +118,22 @@ function TraceTest({ isAuthenticated }: TraceTestProps) {
   const formatHops = (hops: string[] | undefined) => {
     if (!hops || hops.length === 0) return 'No route information available'
     return hops.map((hop, index) => `${index + 1}. ${hop}`).join('\n')
+  }
+
+  const downloadDetailedResults = () => {
+    if (!result) return
+
+    const dataToDownload = result.raw_results || result
+    const jsonString = JSON.stringify(dataToDownload, null, 2)
+    const blob = new Blob([jsonString], { type: 'application/json' })
+    const url = URL.createObjectURL(blob)
+    const link = document.createElement('a')
+    link.href = url
+    link.download = `trace-results-${result.target || 'unknown'}-${new Date().toISOString()}.json`
+    document.body.appendChild(link)
+    link.click()
+    document.body.removeChild(link)
+    URL.revokeObjectURL(url)
   }
 
   return (
@@ -240,10 +259,6 @@ function TraceTest({ isAuthenticated }: TraceTestProps) {
 
             <div className="result-summary">
               <div className="result-card">
-                <div className="result-label">Test Type</div>
-                <div className="result-value">{result.test_type?.toUpperCase() || 'N/A'}</div>
-              </div>
-              <div className="result-card">
                 <div className="result-label">Target</div>
                 <div className="result-value">{result.target || 'N/A'}</div>
               </div>
@@ -262,10 +277,69 @@ function TraceTest({ isAuthenticated }: TraceTestProps) {
               </div>
             )}
 
-            {result.raw_results && Object.keys(result.raw_results).length > 0 && (
-              <div className="raw-results">
-                <h4>Detailed Results</h4>
-                <pre className="json-output">{JSON.stringify(result.raw_results, null, 2)}</pre>
+            <div className="detailed-results-section">
+              <button
+                className="btn-view-details"
+                onClick={() => setShowDetailedResults(true)}
+              >
+                View Detailed Results
+              </button>
+            </div>
+
+            {showDetailedResults && result && (
+              <div className="modal-overlay" onClick={() => setShowDetailedResults(false)}>
+                <div className="modal-content modal-large" onClick={(e) => e.stopPropagation()}>
+                  <div className="modal-header">
+                    <h3>Full Trace Report</h3>
+                    <div className="modal-header-actions">
+                      <button className="btn-download-json" onClick={downloadDetailedResults}>
+                        Download JSON
+                      </button>
+                      <button className="modal-close" onClick={() => setShowDetailedResults(false)}>×</button>
+                    </div>
+                  </div>
+                  <div className="modal-body modal-body-columns">
+                    <div className="modal-column summary-column">
+                      <h4>Summary</h4>
+                      <div className="summary-item">
+                        <span className="summary-label">Target:</span>
+                        <span className="summary-value">{result.target || 'N/A'}</span>
+                      </div>
+                      {result.latency_ms !== undefined && (
+                        <div className="summary-item">
+                          <span className="summary-label">Latency:</span>
+                          <span className="summary-value">{result.latency_ms.toFixed(2)} ms</span>
+                        </div>
+                      )}
+                      <div className="summary-item">
+                        <span className="summary-label">Status:</span>
+                        <span className={`summary-value ${result.success ? 'success-text' : 'error-text'}`}>
+                          {result.success ? 'Success' : 'Failed'}
+                        </span>
+                      </div>
+                      {result.error && (
+                        <div className="summary-item">
+                          <span className="summary-label">Error:</span>
+                          <span className="summary-value error-text">{result.error}</span>
+                        </div>
+                      )}
+                      {result.hops && result.hops.length > 0 && (
+                        <div className="summary-item">
+                          <span className="summary-label">Total Hops:</span>
+                          <span className="summary-value">{result.hops.length}</span>
+                        </div>
+                      )}
+                    </div>
+                    <div className="modal-column details-column">
+                      <h4>Detailed Results</h4>
+                      {result.raw_results && Object.keys(result.raw_results).length > 0 ? (
+                        <pre className="json-output">{JSON.stringify(result.raw_results, null, 2)}</pre>
+                      ) : (
+                        <pre className="json-output">{JSON.stringify(result, null, 2)}</pre>
+                      )}
+                    </div>
+                  </div>
+                </div>
               </div>
             )}
           </div>

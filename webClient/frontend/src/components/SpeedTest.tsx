@@ -26,6 +26,7 @@ function SpeedTest({ testServerUrl }: SpeedTestProps) {
   const [latency, setLatency] = useState(0)
   const [result, setResult] = useState<SpeedTestResult | null>(null)
   const [serverInfo, setServerInfo] = useState<any>(null)
+  const [numStreams, setNumStreams] = useState(6)
   const abortControllerRef = useRef<AbortController | null>(null)
 
   useEffect(() => {
@@ -97,7 +98,6 @@ function SpeedTest({ testServerUrl }: SpeedTestProps) {
     setCurrentSpeed(0)
 
     const chunkSizeMB = 10
-    const numStreams = serverInfo?.recommended_streams || 6
     const testDuration = 10000 // 10 seconds
 
     const startTime = Date.now()
@@ -189,7 +189,6 @@ function SpeedTest({ testServerUrl }: SpeedTestProps) {
     setCurrentSpeed(0)
 
     const chunkSizeMB = 10
-    const numStreams = serverInfo?.recommended_streams || 6
     const testDuration = 10000 // 10 seconds
 
     // Generate random data to upload
@@ -349,15 +348,32 @@ function SpeedTest({ testServerUrl }: SpeedTestProps) {
                 />
               </svg>
             </div>
+
+            <div className="streams-control">
+              <label htmlFor="streams-slider">
+                Number of Streams: <strong>{numStreams}</strong>
+              </label>
+              <input
+                id="streams-slider"
+                type="range"
+                min="1"
+                max="20"
+                value={numStreams}
+                onChange={(e) => setNumStreams(parseInt(e.target.value, 10))}
+                className="streams-slider"
+              />
+              <div className="streams-range-labels">
+                <span>1</span>
+                <span>20</span>
+              </div>
+            </div>
+
             <button onClick={runSpeedTest} className="btn-start-speedtest">
               Start Speed Test
             </button>
             {serverInfo && (
               <div className="server-info">
                 <p>Server: {serverInfo.name}</p>
-                <p>
-                  Streams: {serverInfo.recommended_streams} parallel connections
-                </p>
               </div>
             )}
           </div>

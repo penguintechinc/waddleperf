@@ -29,9 +29,13 @@ RUN apk add --no-cache \
     iputils \
     bind-tools \
     traceroute \
+    tcptraceroute \
+    libcap \
     openssh-client && \
     addgroup -g 1000 waddleperf && \
-    adduser -D -u 1000 -G waddleperf waddleperf
+    adduser -D -u 1000 -G waddleperf waddleperf && \
+    setcap cap_net_raw+ep /usr/bin/traceroute && \
+    setcap cap_net_raw+ep /usr/bin/tcptraceroute
 
 WORKDIR /app
 
