@@ -6,6 +6,7 @@ import TestResults from './TestResults'
 import RealtimeCharts from './RealtimeCharts'
 import SpeedTest from './SpeedTest'
 import DownloadTest from './DownloadTest'
+import TraceTest from './TraceTest'
 import ThemeToggle from './ThemeToggle'
 import './TestRunner.css'
 
@@ -29,7 +30,7 @@ export interface LatencyDataPoint {
 }
 
 function TestRunner({ user, onLogout, authEnabled }: TestRunnerProps) {
-  const [activeTab, setActiveTab] = useState<'tests' | 'speedtest' | 'download'>('tests')
+  const [activeTab, setActiveTab] = useState<'tests' | 'speedtest' | 'download' | 'trace'>('speedtest')
   const [isRunningTest, setIsRunningTest] = useState(false)
   const [testProgress, setTestProgress] = useState(0)
   const [testResult, setTestResult] = useState<TestCompleteData | null>(null)
@@ -177,16 +178,22 @@ function TestRunner({ user, onLogout, authEnabled }: TestRunnerProps) {
         <div className="container">
           <div className="tab-navigation">
             <button
-              className={`tab-button ${activeTab === 'tests' ? 'active' : ''}`}
-              onClick={() => setActiveTab('tests')}
-            >
-              Remote Network Tests
-            </button>
-            <button
               className={`tab-button ${activeTab === 'speedtest' ? 'active' : ''}`}
               onClick={() => setActiveTab('speedtest')}
             >
               Speed Test
+            </button>
+            <button
+              className={`tab-button ${activeTab === 'tests' ? 'active' : ''}`}
+              onClick={() => setActiveTab('tests')}
+            >
+              Network Tests
+            </button>
+            <button
+              className={`tab-button ${activeTab === 'trace' ? 'active' : ''}`}
+              onClick={() => setActiveTab('trace')}
+            >
+              Trace Tests
             </button>
             <button
               className={`tab-button ${activeTab === 'download' ? 'active' : ''}`}
@@ -222,7 +229,17 @@ function TestRunner({ user, onLogout, authEnabled }: TestRunnerProps) {
                   />
                 )}
 
-                {testResult && !isRunningTest && <TestResults result={testResult} />}
+                {testResult && !isRunningTest && (
+                  <TestResults
+                    result={testResult}
+                    onClose={() => setTestResult(null)}
+                    onRunAgain={() => {
+                      setTestResult(null)
+                      setLatencyData([])
+                      setCurrentMetrics({ latency: 0, throughput: 0, jitter: 0, packetLoss: 0 })
+                    }}
+                  />
+                )}
 
                 {!isRunningTest && !testResult && latencyData.length === 0 && (
                   <div className="welcome-message">
@@ -261,6 +278,12 @@ function TestRunner({ user, onLogout, authEnabled }: TestRunnerProps) {
           {activeTab === 'download' && (
             <div className="downloadtest-layout">
               <DownloadTest testServerUrl={import.meta.env.VITE_TESTSERVER_URL || 'http://localhost:8080'} />
+            </div>
+          )}
+
+          {activeTab === 'trace' && (
+            <div className="trace-layout">
+              <TraceTest isAuthenticated={!!user} />
             </div>
           )}
         </div>

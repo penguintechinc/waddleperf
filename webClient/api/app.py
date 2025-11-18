@@ -341,7 +341,7 @@ def validate_test_params(data: Dict[str, Any], test_type: str) -> tuple[bool, Op
 @app.route('/api/test/<test_type>', methods=['POST'])
 def run_test(test_type: str):
     """Proxy test request to testServer"""
-    if test_type not in ['http', 'tcp', 'udp', 'icmp']:
+    if test_type not in ['http', 'tcp', 'udp', 'icmp', 'http_trace', 'tcp_trace', 'udp_trace', 'traceroute']:
         return jsonify({'error': 'Invalid test type'}), 400
 
     # Check authentication if enabled
@@ -418,7 +418,7 @@ def handle_start_test(data):
     """Handle test execution via WebSocket for real-time updates"""
     test_type = data.get('test_type')
 
-    if test_type not in ['http', 'tcp', 'udp', 'icmp']:
+    if test_type not in ['http', 'tcp', 'udp', 'icmp', 'http_trace', 'tcp_trace', 'udp_trace', 'traceroute']:
         emit('error', {'error': 'Invalid test type'})
         return
 

@@ -256,6 +256,183 @@ func (h *TestHandlers) ICMPTestHandler(w http.ResponseWriter, r *http.Request) {
 	json.NewEncoder(w).Encode(result)
 }
 
+func (h *TestHandlers) HTTPTraceHandler(w http.ResponseWriter, r *http.Request) {
+	var req protocols.HTTPTraceRequest
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		http.Error(w, "Invalid request body", http.StatusBadRequest)
+		return
+	}
+
+	// Validate inputs
+	if err := validation.ValidateTarget(req.Target); err != nil {
+		log.Printf("HTTP trace validation failed: %v", err)
+		http.Error(w, err.Error(), http.StatusBadRequest)
+		return
+	}
+	if req.Port > 0 {
+		if err := validation.ValidatePort(req.Port); err != nil {
+			log.Printf("HTTP trace validation failed: %v", err)
+			http.Error(w, err.Error(), http.StatusBadRequest)
+			return
+		}
+	}
+	if req.Timeout > 0 {
+		if err := validation.ValidateTimeout(req.Timeout); err != nil {
+			log.Printf("HTTP trace validation failed: %v", err)
+			http.Error(w, err.Error(), http.StatusBadRequest)
+			return
+		}
+	}
+
+	// Sanitize inputs
+	req.Target = validation.SanitizeString(req.Target, validation.MaxTargetLength)
+
+	result, err := protocols.TestHTTPTrace(req)
+	if err != nil {
+		log.Printf("HTTP trace failed: %v", err)
+		http.Error(w, "Test execution failed", http.StatusInternalServerError)
+		return
+	}
+
+	if err := h.saveTestResult(r, "http_trace", "http_trace", req.Target, result); err != nil {
+		log.Printf("Failed to save test result: %v", err)
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	json.NewEncoder(w).Encode(result)
+}
+
+func (h *TestHandlers) TCPTraceHandler(w http.ResponseWriter, r *http.Request) {
+	var req protocols.TCPTraceRequest
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		http.Error(w, "Invalid request body", http.StatusBadRequest)
+		return
+	}
+
+	// Validate inputs
+	if err := validation.ValidateTarget(req.Target); err != nil {
+		log.Printf("TCP trace validation failed: %v", err)
+		http.Error(w, err.Error(), http.StatusBadRequest)
+		return
+	}
+	if req.Port > 0 {
+		if err := validation.ValidatePort(req.Port); err != nil {
+			log.Printf("TCP trace validation failed: %v", err)
+			http.Error(w, err.Error(), http.StatusBadRequest)
+			return
+		}
+	}
+	if req.Timeout > 0 {
+		if err := validation.ValidateTimeout(req.Timeout); err != nil {
+			log.Printf("TCP trace validation failed: %v", err)
+			http.Error(w, err.Error(), http.StatusBadRequest)
+			return
+		}
+	}
+
+	// Sanitize inputs
+	req.Target = validation.SanitizeString(req.Target, validation.MaxTargetLength)
+
+	result, err := protocols.TestTCPTrace(req)
+	if err != nil {
+		log.Printf("TCP trace failed: %v", err)
+		http.Error(w, "Test execution failed", http.StatusInternalServerError)
+		return
+	}
+
+	if err := h.saveTestResult(r, "tcp_trace", "tcp_trace", req.Target, result); err != nil {
+		log.Printf("Failed to save test result: %v", err)
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	json.NewEncoder(w).Encode(result)
+}
+
+func (h *TestHandlers) TracerouteHandler(w http.ResponseWriter, r *http.Request) {
+	var req protocols.TracerouteRequest
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		http.Error(w, "Invalid request body", http.StatusBadRequest)
+		return
+	}
+
+	// Validate inputs
+	if err := validation.ValidateTarget(req.Target); err != nil {
+		log.Printf("Traceroute validation failed: %v", err)
+		http.Error(w, err.Error(), http.StatusBadRequest)
+		return
+	}
+	if req.Timeout > 0 {
+		if err := validation.ValidateTimeout(req.Timeout); err != nil {
+			log.Printf("Traceroute validation failed: %v", err)
+			http.Error(w, err.Error(), http.StatusBadRequest)
+			return
+		}
+	}
+
+	// Sanitize inputs
+	req.Target = validation.SanitizeString(req.Target, validation.MaxTargetLength)
+
+	result, err := protocols.TestTraceroute(req)
+	if err != nil {
+		log.Printf("Traceroute failed: %v", err)
+		http.Error(w, "Test execution failed", http.StatusInternalServerError)
+		return
+	}
+
+	if err := h.saveTestResult(r, "traceroute", "icmp", req.Target, result); err != nil {
+		log.Printf("Failed to save test result: %v", err)
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	json.NewEncoder(w).Encode(result)
+}
+
+func (h *TestHandlers) UDPTraceHandler(w http.ResponseWriter, r *http.Request) {
+	var req protocols.UDPTraceRequest
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		http.Error(w, "Invalid request body", http.StatusBadRequest)
+		return
+	}
+
+	// Validate inputs
+	if err := validation.ValidateTarget(req.Target); err != nil {
+		log.Printf("UDP trace validation failed: %v", err)
+		http.Error(w, err.Error(), http.StatusBadRequest)
+		return
+	}
+	if req.Port > 0 {
+		if err := validation.ValidatePort(req.Port); err != nil {
+			log.Printf("UDP trace validation failed: %v", err)
+			http.Error(w, err.Error(), http.StatusBadRequest)
+			return
+		}
+	}
+	if req.Timeout > 0 {
+		if err := validation.ValidateTimeout(req.Timeout); err != nil {
+			log.Printf("UDP trace validation failed: %v", err)
+			http.Error(w, err.Error(), http.StatusBadRequest)
+			return
+		}
+	}
+
+	// Sanitize inputs
+	req.Target = validation.SanitizeString(req.Target, validation.MaxTargetLength)
+
+	result, err := protocols.TestUDPTrace(req)
+	if err != nil {
+		log.Printf("UDP trace failed: %v", err)
+		http.Error(w, "Test execution failed", http.StatusInternalServerError)
+		return
+	}
+
+	if err := h.saveTestResult(r, "udp_trace", "udp", req.Target, result); err != nil {
+		log.Printf("Failed to save test result: %v", err)
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	json.NewEncoder(w).Encode(result)
+}
+
 func (h *TestHandlers) HealthHandler(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "application/json")
 	json.NewEncoder(w).Encode(map[string]string{
@@ -299,17 +476,32 @@ func (h *TestHandlers) saveTestResult(r *http.Request, testType, protocolDetail,
 	switch v := resultData.(type) {
 	case *protocols.HTTPTestResult:
 		latency = &v.LatencyMS
+		if v.JitterMS > 0 {
+			jitter = &v.JitterMS
+		}
 		rawResults["status_code"] = v.StatusCode
 		rawResults["ttfb_ms"] = v.TTFBMS
 		rawResults["total_time_ms"] = v.TotalTimeMS
+		rawResults["min_latency_ms"] = v.MinLatencyMS
+		rawResults["max_latency_ms"] = v.MaxLatencyMS
 	case *protocols.TCPTestResult:
 		latency = &v.LatencyMS
+		if v.JitterMS > 0 {
+			jitter = &v.JitterMS
+		}
 		if v.HandshakeMS > 0 {
 			rawResults["handshake_ms"] = v.HandshakeMS
 		}
+		rawResults["min_latency_ms"] = v.MinLatencyMS
+		rawResults["max_latency_ms"] = v.MaxLatencyMS
 		targetIP = v.RemoteAddr
 	case *protocols.UDPTestResult:
 		latency = &v.LatencyMS
+		if v.JitterMS > 0 {
+			jitter = &v.JitterMS
+		}
+		rawResults["min_latency_ms"] = v.MinLatencyMS
+		rawResults["max_latency_ms"] = v.MaxLatencyMS
 		targetIP = v.RemoteAddr
 	case *protocols.ICMPTestResult:
 		latency = &v.LatencyMS
@@ -317,6 +509,15 @@ func (h *TestHandlers) saveTestResult(r *http.Request, testType, protocolDetail,
 		packetLoss = &v.PacketLossPercent
 		rawResults["packets_sent"] = v.PacketsSent
 		rawResults["packets_received"] = v.PacketsReceived
+	case *protocols.TraceResult:
+		latency = &v.LatencyMS
+		if v.Hops != nil && len(v.Hops) > 0 {
+			rawResults["hops"] = v.Hops
+			rawResults["hop_count"] = len(v.Hops)
+		}
+		if v.RouteInfo != "" {
+			rawResults["route_info"] = v.RouteInfo
+		}
 	case map[string]interface{}:
 		// Handle speedtest results (passed as map)
 		if lat, ok := v["latency_ms"].(float64); ok {

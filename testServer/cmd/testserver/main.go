@@ -70,6 +70,10 @@ func main() {
 	api.HandleFunc("/test/tcp", testHandlers.TCPTestHandler).Methods("POST")
 	api.HandleFunc("/test/udp", testHandlers.UDPTestHandler).Methods("POST")
 	api.HandleFunc("/test/icmp", testHandlers.ICMPTestHandler).Methods("POST")
+	api.HandleFunc("/test/http_trace", testHandlers.HTTPTraceHandler).Methods("POST")
+	api.HandleFunc("/test/tcp_trace", testHandlers.TCPTraceHandler).Methods("POST")
+	api.HandleFunc("/test/udp_trace", testHandlers.UDPTraceHandler).Methods("POST")
+	api.HandleFunc("/test/traceroute", testHandlers.TracerouteHandler).Methods("POST")
 
 	// Create HTTP server
 	server := &http.Server{

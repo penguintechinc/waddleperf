@@ -47,6 +47,7 @@ function Login({ onLogin }: LoginProps) {
     <div className="login-container">
       <div className="login-card">
         <div className="login-header">
+          <img src="/waddleperf-penguin.svg" alt="WaddlePerf Logo" className="login-logo" />
           <h1>WaddlePerf</h1>
           <p>Network Performance Testing</p>
         </div>

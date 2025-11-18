@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"math"
 	"net"
 	"net/url"
 	"strconv"
@@ -17,17 +18,21 @@ type UDPTestRequest struct {
 	ProtocolDetail string `json:"protocol_detail"` // Alternative field name for compatibility
 	Port           int    `json:"port"`            // Optional port override
 	Timeout        int    `json:"timeout"`
+	Count          int    `json:"count"`           // Number of requests for jitter calculation
 	Query          string `json:"query,omitempty"` // For DNS
 }
 
 type UDPTestResult struct {
-	Target     string  `json:"target"`
-	Protocol   string  `json:"protocol"`
-	Success    bool    `json:"success"`
-	LatencyMS  float64 `json:"latency_ms"`
-	Error      string  `json:"error,omitempty"`
-	RemoteAddr string  `json:"remote_addr"`
-	Response   string  `json:"response,omitempty"`
+	Target       string  `json:"target"`
+	Protocol     string  `json:"protocol"`
+	Success      bool    `json:"success"`
+	LatencyMS    float64 `json:"latency_ms"`      // Average latency
+	MinLatencyMS float64 `json:"min_latency_ms"`  // Minimum latency
+	MaxLatencyMS float64 `json:"max_latency_ms"`  // Maximum latency
+	JitterMS     float64 `json:"jitter_ms"`       // Average jitter
+	Error        string  `json:"error,omitempty"`
+	RemoteAddr   string  `json:"remote_addr"`
+	Response     string  `json:"response,omitempty"`
 }
 
 func TestUDP(req UDPTestRequest) (*UDPTestResult, error) {
@@ -40,6 +45,9 @@ func TestUDP(req UDPTestRequest) (*UDPTestResult, error) {
 	if protocol == "" {
 		protocol = "dns"
 	}
+
+	// Normalize protocol to lowercase for case-insensitive comparison
+	protocol = strings.ToLower(protocol)
 
 	// Parse target to extract host and port
 	target, err := parseUDPTarget(req.Target, req.Port, protocol)
@@ -57,19 +65,89 @@ func TestUDP(req UDPTestRequest) (*UDPTestResult, error) {
 		timeout = 5 * time.Second
 	}
 
-	switch protocol {
-	case "raw":
-		return testRawUDP(target, timeout, result)
-	case "dns":
-		return testDNS(target, req.Query, timeout, result)
-	case "tls":
-		// DTLS not commonly implemented in Go stdlib
-		result.Error = "UDP+TLS (DTLS) not yet implemented"
-		return result, fmt.Errorf(result.Error)
-	default:
-		result.Error = fmt.Sprintf("unsupported protocol: %s", protocol)
-		return result, fmt.Errorf(result.Error)
+	// Default count to 1 if not specified
+	count := req.Count
+	if count <= 0 {
+		count = 1
 	}
+
+	// Run multiple tests to calculate jitter
+	var latencies []float64
+	var lastResult *UDPTestResult
+	var lastError error
+
+	for i := 0; i < count; i++ {
+		var iterResult *UDPTestResult
+
+		switch protocol {
+		case "raw":
+			iterResult, lastError = testRawUDP(target, timeout, &UDPTestResult{Target: target, Protocol: protocol})
+		case "dns":
+			iterResult, lastError = testDNS(target, req.Query, timeout, &UDPTestResult{Target: target, Protocol: protocol})
+		case "tls":
+			// DTLS not commonly implemented in Go stdlib
+			result.Error = "UDP+TLS (DTLS) not yet implemented"
+			return result, fmt.Errorf(result.Error)
+		default:
+			result.Error = fmt.Sprintf("unsupported protocol: %s", protocol)
+			return result, fmt.Errorf(result.Error)
+		}
+
+		if iterResult != nil && iterResult.Success {
+			latencies = append(latencies, iterResult.LatencyMS)
+			lastResult = iterResult
+		}
+
+		// Small delay between attempts
+		if i < count-1 {
+			time.Sleep(100 * time.Millisecond)
+		}
+	}
+
+	if len(latencies) == 0 || lastResult == nil {
+		result.Success = false
+		if lastError != nil {
+			result.Error = lastError.Error()
+		} else {
+			result.Error = "No successful requests"
+		}
+		return result, lastError
+	}
+
+	// Calculate statistics
+	var sum, min, max float64
+	min = latencies[0]
+	max = latencies[0]
+
+	for _, lat := range latencies {
+		sum += lat
+		if lat < min {
+			min = lat
+		}
+		if lat > max {
+			max = lat
+		}
+	}
+
+	result.LatencyMS = sum / float64(len(latencies))
+	result.MinLatencyMS = min
+	result.MaxLatencyMS = max
+
+	// Calculate jitter
+	if len(latencies) > 1 {
+		var jitterSum float64
+		for i := 1; i < len(latencies); i++ {
+			jitterSum += math.Abs(latencies[i] - latencies[i-1])
+		}
+		result.JitterMS = jitterSum / float64(len(latencies)-1)
+	}
+
+	// Copy other fields from last result
+	result.Success = lastResult.Success
+	result.RemoteAddr = lastResult.RemoteAddr
+	result.Response = lastResult.Response
+
+	return result, nil
 }
 
 // parseUDPTarget extracts host:port from various input formats

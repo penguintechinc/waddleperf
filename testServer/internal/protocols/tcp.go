@@ -4,6 +4,7 @@ import (
 	"crypto/tls"
 	"encoding/json"
 	"fmt"
+	"math"
 	"net"
 	"net/url"
 	"strconv"
@@ -19,19 +20,23 @@ type TCPTestRequest struct {
 	ProtocolDetail string `json:"protocol_detail"` // Alternative field name for compatibility
 	Port           int    `json:"port"`            // Optional port override
 	Timeout        int    `json:"timeout"`
+	Count          int    `json:"count"` // Number of connections for jitter calculation
 }
 
 type TCPTestResult struct {
-	Target      string  `json:"target"`
-	Protocol    string  `json:"protocol"`
-	Connected   bool    `json:"connected"`
-	LatencyMS   float64 `json:"latency_ms"`
-	HandshakeMS float64 `json:"handshake_ms,omitempty"`
-	Success     bool    `json:"success"`
-	Error       string  `json:"error,omitempty"`
-	RemoteAddr  string  `json:"remote_addr"`
-	TLSVersion  string  `json:"tls_version,omitempty"`
-	SSHVersion  string  `json:"ssh_version,omitempty"`
+	Target       string  `json:"target"`
+	Protocol     string  `json:"protocol"`
+	Connected    bool    `json:"connected"`
+	LatencyMS    float64 `json:"latency_ms"`      // Average latency
+	MinLatencyMS float64 `json:"min_latency_ms"`  // Minimum latency
+	MaxLatencyMS float64 `json:"max_latency_ms"`  // Maximum latency
+	JitterMS     float64 `json:"jitter_ms"`       // Average jitter
+	HandshakeMS  float64 `json:"handshake_ms,omitempty"`
+	Success      bool    `json:"success"`
+	Error        string  `json:"error,omitempty"`
+	RemoteAddr   string  `json:"remote_addr"`
+	TLSVersion   string  `json:"tls_version,omitempty"`
+	SSHVersion   string  `json:"ssh_version,omitempty"`
 }
 
 func TestTCP(req TCPTestRequest) (*TCPTestResult, error) {
@@ -42,6 +47,14 @@ func TestTCP(req TCPTestRequest) (*TCPTestResult, error) {
 	}
 	// Default to raw if still empty
 	if protocol == "" {
+		protocol = "raw"
+	}
+
+	// Normalize protocol to lowercase for case-insensitive comparison
+	protocol = strings.ToLower(protocol)
+	protocol = strings.ReplaceAll(protocol, " ", "")
+	// Handle "Raw TCP" -> "raw"
+	if strings.Contains(protocol, "raw") {
 		protocol = "raw"
 	}
 
@@ -61,17 +74,90 @@ func TestTCP(req TCPTestRequest) (*TCPTestResult, error) {
 		timeout = 10 * time.Second
 	}
 
-	switch protocol {
-	case "raw":
-		return testRawTCP(target, timeout, result)
-	case "tls":
-		return testTLSTCP(target, timeout, result)
-	case "ssh":
-		return testSSH(target, timeout, result)
-	default:
-		result.Error = fmt.Sprintf("unsupported protocol: %s", protocol)
-		return result, fmt.Errorf(result.Error)
+	// Default count to 1 if not specified
+	count := req.Count
+	if count <= 0 {
+		count = 1
 	}
+
+	// Run multiple tests to calculate jitter
+	var latencies []float64
+	var lastResult *TCPTestResult
+	var lastError error
+
+	for i := 0; i < count; i++ {
+		var iterResult *TCPTestResult
+
+		switch protocol {
+		case "raw", "tcp":
+			iterResult, lastError = testRawTCP(target, timeout, &TCPTestResult{Target: target, Protocol: protocol})
+		case "tls":
+			iterResult, lastError = testTLSTCP(target, timeout, &TCPTestResult{Target: target, Protocol: protocol})
+		case "ssh":
+			iterResult, lastError = testSSH(target, timeout, &TCPTestResult{Target: target, Protocol: protocol})
+		default:
+			result.Error = fmt.Sprintf("unsupported protocol: %s", protocol)
+			return result, fmt.Errorf(result.Error)
+		}
+
+		if iterResult != nil {
+			latencies = append(latencies, iterResult.LatencyMS)
+			lastResult = iterResult
+		}
+
+		// Small delay between attempts
+		if i < count-1 {
+			time.Sleep(100 * time.Millisecond)
+		}
+	}
+
+	if len(latencies) == 0 || lastResult == nil {
+		result.Success = false
+		if lastError != nil {
+			result.Error = lastError.Error()
+		} else {
+			result.Error = "No successful connections"
+		}
+		return result, lastError
+	}
+
+	// Calculate statistics
+	var sum, min, max float64
+	min = latencies[0]
+	max = latencies[0]
+
+	for _, lat := range latencies {
+		sum += lat
+		if lat < min {
+			min = lat
+		}
+		if lat > max {
+			max = lat
+		}
+	}
+
+	result.LatencyMS = sum / float64(len(latencies))
+	result.MinLatencyMS = min
+	result.MaxLatencyMS = max
+
+	// Calculate jitter
+	if len(latencies) > 1 {
+		var jitterSum float64
+		for i := 1; i < len(latencies); i++ {
+			jitterSum += math.Abs(latencies[i] - latencies[i-1])
+		}
+		result.JitterMS = jitterSum / float64(len(latencies)-1)
+	}
+
+	// Copy other fields from last result
+	result.Connected = lastResult.Connected
+	result.Success = lastResult.Success
+	result.RemoteAddr = lastResult.RemoteAddr
+	result.TLSVersion = lastResult.TLSVersion
+	result.SSHVersion = lastResult.SSHVersion
+	result.HandshakeMS = lastResult.HandshakeMS
+
+	return result, nil
 }
 
 // parseTarget extracts host:port from various input formats
