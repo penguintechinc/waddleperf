@@ -88,7 +88,7 @@ WaddlePerf 4.x uses a modern, containerized architecture with multiple component
 - **managerServer** (Python/Flask + React) - Centralized management and authentication (split: API + frontend containers)
 - **webClient** (Python/Flask + React) - Browser-based testing interface (split: API + frontend containers)
 - **containerClient** (Python) - Automated container-based testing (single container)
-- **goClient** (Go) - Cross-platform desktop client (in development)
+- **goClient** (Go) - Cross-platform desktop client with GUI support (Linux, Windows, macOS)
 - **MariaDB Galera Cluster** - High-availability database with multi-master replication
   - Supports multi-write nodes for active-active configuration
   - Automatic failover and synchronous replication
@@ -162,7 +162,7 @@ docker-compose ps
 
 **Default Credentials:**
 - Username: `admin`
-- Password: `ChangeMeAlready`
+- Password: `admin123`
 - **⚠️ Change immediately in production!**
 
 ## Documentation
