@@ -1,10 +1,10 @@
 # Flask and extensions
-Flask==3.0.0
-Flask-CORS==4.0.0
+Flask==3.1.2
+Flask-CORS==6.0.0
 Flask-SQLAlchemy==3.1.1
 
 # Database
-PyMySQL==1.1.0
+PyMySQL==1.1.1
 SQLAlchemy==2.0.25
 
 # Authentication
@@ -13,7 +13,7 @@ bcrypt==4.1.2
 pyotp==2.9.0
 
 # Server
-gunicorn==21.2.0
+gunicorn==22.0.0
 gevent==24.2.1
 
 # Utilities
