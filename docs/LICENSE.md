@@ -2,6 +2,22 @@
 
 Repacking this software for commercial use is not permitted without an explicit commercial license granted by the software owner. Commercial use includes, but is not limited to, reselling, bundling, or offering the software as a service. This product may not be sold or used outside of internal corporate or individual non-commercial use, except by the owners of this repository, unless a license is purchased. The AGPL-3.0 license applies for internal or non-commercial individual user use cases. This ensures funding to maintain the project continues and ensures fair use. Contact the project maintainers for licensing options.
 
+### Contributor Employer Exception (GPL-2.0 Grant)
+
+Notwithstanding the above restrictions, companies and organizations that employ individuals who are official contributors to this project are granted access to the community (non-enterprise) portion of the software under the terms of the GNU General Public License, version 2.0 (GPL-2.0), subject to the following conditions:
+
+1. **Contributor Attribution**: The employee must be explicitly mentioned as a contributor in the relevant version(s) of the software (e.g., in CONTRIBUTORS, AUTHORS, commit history, or release notes).
+
+2. **Version Scope and Perpetuity**: This GPL-2.0 grant applies to versions of the software in which the employee is credited as a contributor while actively employed by the company. Once granted, these rights are **perpetual** for those specific versions - the company retains GPL-2.0 rights to contributed versions even after the employee's departure.
+
+3. **Future Versions**: Versions released after the employment relationship ends are not covered by this exception and require standard licensing terms.
+
+4. **Community Portion Only**: This exception applies exclusively to the community/open-source portions of the codebase. Enterprise features, proprietary modules, and any code explicitly marked as requiring a commercial license remain subject to the commercial licensing terms above.
+
+5. **Documentation Requirement**: Companies claiming this exception must maintain documentation demonstrating: (a) the employment relationship during the contribution period, (b) the employee's contributor status, and (c) the specific software versions covered.
+
+This exception is designed to reward and encourage contributions to the project by providing lasting fair use rights to the employers of those who actively contribute to the project's development.
+
 # GNU AFFERO GENERAL PUBLIC LICENSE
 Version 3, 19 November 2007
 
