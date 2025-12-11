@@ -23,16 +23,20 @@ jobs:
       - name: Check if .version file exists
         id: check_version
         run: |
+          EPOCH64=$(date +%s)
+
           if [ ! -f .version ]; then
             echo "0.0.0" > .version
             echo "version=0.0.0" >> $GITHUB_OUTPUT
             echo "should_release=false" >> $GITHUB_OUTPUT
+            echo "epoch64=${EPOCH64}" >> $GITHUB_OUTPUT
           else
             VERSION=$(cat .version | tr -d '[:space:]')
             # Extract semantic version (strip build timestamp if present)
             SEMVER=$(echo "$VERSION" | cut -d'.' -f1-3)
             echo "version=$SEMVER" >> $GITHUB_OUTPUT
             echo "full_version=$VERSION" >> $GITHUB_OUTPUT
+            echo "epoch64=${EPOCH64}" >> $GITHUB_OUTPUT
 
             # Check if version is default
             if [ "$SEMVER" = "0.0.0" ]; then
@@ -65,18 +69,31 @@ jobs:
         run: |
           VERSION="${{ steps.check_version.outputs.version }}"
           FULL_VERSION="${{ steps.check_version.outputs.full_version }}"
+          EPOCH64="${{ steps.check_version.outputs.epoch64 }}"
 
-          # Create release notes
+          # Determine release labels based on version patterns
+          LABELS=""
+          if [[ "$VERSION" =~ alpha|beta ]]; then
+            LABELS="[prerelease]"
+          elif [[ "$VERSION" =~ rc ]]; then
+            LABELS="[release-candidate]"
+          else
+            LABELS="[stable]"
+          fi
+
+          # Create release notes with metadata
           cat << EOF > release_notes.md
-          ## Pre-Release v$VERSION
+          ## Pre-Release v$VERSION $LABELS
 
           This is an automated pre-release created from version file update.
 
-          **Version Details:**
+          **Version Metadata:**
           - Semantic Version: \`$VERSION\`
           - Full Version: \`$FULL_VERSION\`
+          - Epoch64 Timestamp: \`$EPOCH64\`
           - Commit: \`${{ github.sha }}\`
           - Branch: \`${{ github.ref_name }}\`
+          - Build Time: \`$(date -u +"%Y-%m-%dT%H:%M:%SZ")\`
 
           ### Changes
 

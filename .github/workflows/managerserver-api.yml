@@ -6,14 +6,20 @@ on:
     tags: ['v*']
     paths:
       - 'managerServer/api/**'
+      - '.version'
       - 'managerServer/Dockerfile.api'
+      - '.version'
       - '.github/workflows/managerserver-api.yml'
+      - '.version'
   pull_request:
     branches: [main, 4.x]
     paths:
       - 'managerServer/api/**'
+      - '.version'
       - 'managerServer/Dockerfile.api'
+      - '.version'
       - '.github/workflows/managerserver-api.yml'
+      - '.version'
   workflow_dispatch:
 
 env:

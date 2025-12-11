@@ -5,11 +5,13 @@ on:
     branches: [ main, v4.x, develop ]
     paths:
       - 'go-client/**'
+      - '.version'
       - '.github/workflows/build-go-client.yml'
   pull_request:
     branches: [ main, v4.x ]
     paths:
       - 'go-client/**'
+      - '.version'
       - '.github/workflows/build-go-client.yml'
   release:
     types: [created]
@@ -45,16 +47,25 @@ jobs:
       with:
         platforms: linux/amd64,linux/arm64,darwin/amd64,darwin/arm64,windows/amd64,windows/arm64
 
+    - name: Detect version from .version file
+      id: version-detect
+      run: |
+        if [ -f .version ]; then
+          VERSION=$(cat .version | tr -d '[:space:]')
+          echo "version=${VERSION}" >> $GITHUB_OUTPUT
+          echo "Version detected: ${VERSION}"
+        else
+          VERSION="0.0.0.$(date +%s)"
+          echo "version=${VERSION}" >> $GITHUB_OUTPUT
+          echo "No .version file found, using epoch timestamp: ${VERSION}"
+        fi
+
     - name: Extract build metadata
       id: meta
       run: |
-        VERSION="${GITHUB_REF_NAME:-dev}"
-        if [[ "${{ github.event_name }}" == "release" ]]; then
-          VERSION="${GITHUB_REF#refs/tags/}"
-        elif [[ "${{ github.event_name }}" == "pull_request" ]]; then
-          VERSION="pr-${{ github.event.number }}"
-        fi
-        
+        VERSION="${{ steps.version-detect.outputs.version }}"
+        EPOCH64=$(date +%s)
+
         BUILD_TIME=$(date -u +"%Y-%m-%dT%H:%M:%SZ")
         GIT_COMMIT="${GITHUB_SHA::8}"
         PLATFORM="${{ matrix.platform }}"
@@ -94,6 +105,25 @@ jobs:
           --build-arg "BUILD_TIME=${{ steps.meta.outputs.BUILD_TIME }}" \
           --build-arg "GIT_COMMIT=${{ steps.meta.outputs.GIT_COMMIT }}" \
           .
+
+    - name: Security scan with gosec (Linux AMD64 only)
+      if: matrix.platform == 'linux/amd64'
+      working-directory: ./go-client
+      run: |
+        echo "Running gosec security scan..."
+        docker buildx build \
+          --file Dockerfile.build \
+          --target securitycheck \
+          --platform ${{ matrix.platform }} \
+          --build-arg "VERSION=${{ steps.meta.outputs.VERSION }}" \
+          --output type=local,dest=./gosec-output \
+          . || echo "⚠️ Security issues detected - review required"
+
+        # Display gosec results
+        if [ -f "./gosec-output/results.json" ]; then
+          echo "Security scan results:"
+          cat ./gosec-output/results.json || true
+        fi
 
     - name: Build binary with Docker
       working-directory: ./go-client
