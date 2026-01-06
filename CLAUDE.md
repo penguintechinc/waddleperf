@@ -1,7 +1,18 @@
-# CLAUDE.md - AI Assistant Context for WaddlePerf
+# WaddlePerf - Claude Code Context
 
 ## Project Overview
+
 WaddlePerf is a comprehensive network performance testing and monitoring platform that tests user experience between endpoints. It provides both client and server components for network diagnostics, bandwidth testing, and connectivity analysis.
+
+**Project Features:**
+- Multi-tier testing system (Tier 1: Basic, Tier 2: Intermediate, Tier 3: Comprehensive)
+- AutoPerf mode for continuous monitoring
+- Multi-protocol support (TCP, UDP, HTTP, HTTPS, SSH, DNS)
+- S3 integration for results storage
+- Geographic IP analysis and performance tracking
+- Client and server components for distributed testing
+- React-based web UI with role-based access control
+- Flask backend with PyDAL database abstraction
 
 ## Important Instructions for AI Assistants
 
@@ -36,17 +47,80 @@ WaddlePerf is a comprehensive network performance testing and monitoring platfor
 - Requires multi-platform builds (Linux, Windows, macOS)
 
 ## Technology Stack
-- **Languages**: Python 3.12, Go 1.23
-- **Frameworks**: Flask 3.0 (APIs), React 18 (frontends)
-- **Infrastructure**: Docker, Docker Compose, MariaDB Galera
-- **Testing Tools**: Native implementations (HTTP/TCP/UDP/ICMP)
-- **CI/CD**: GitHub Actions
 
-## MariaDB Galera Cluster Compatibility
+### Core Technologies
+- **Languages**: Python 3.13, Go 1.23.x
+- **Web Framework**: Flask 3.0+ with Flask-Security-Too
+- **Frontend**: React 18+ with Tailwind CSS
+- **Database**: PostgreSQL (default), MySQL, SQLite via DB_TYPE
+- **ORM**: SQLAlchemy (initialization), PyDAL (day-to-day operations)
+- **Infrastructure**: Docker, Docker Compose, MariaDB Galera Cluster (optional)
+- **CI/CD**: GitHub Actions with comprehensive security scanning
+- **Protocol Support**: REST API, gRPC, HTTP/1.1, HTTP/2, HTTP/3 (QUIC)
+
+### Project Structure
+```
+WaddlePerf/
+├── client/               # Python client component (py4web)
+│   ├── web/apps/        # Web UI
+│   ├── bins/            # Testing tools
+│   ├── jobs/            # Ansible playbooks
+│   └── vars/            # Configuration
+├── server/              # Python Flask server
+│   ├── web/             # Web services
+│   ├── bins/            # Server utilities
+│   ├── libs/            # Libraries (speedtest, etc.)
+│   └── vars/            # Configuration
+├── go-client/           # Go native clients
+│   ├── cmd/             # Main applications
+│   ├── internal/        # Internal packages
+│   └── pkg/             # Public packages
+├── shared/              # Shared libraries
+│   ├── py_libs/         # Python shared (pip installable)
+│   ├── go_libs/         # Go shared (Go module)
+│   └── node_libs/       # TypeScript shared (npm package)
+├── k8s/                 # Kubernetes deployment
+├── tests/               # Test suites
+├── docs/                # Documentation
+└── docker-compose.yml   # Production environment
+```
+
+## Database Architecture
+
+WaddlePerf uses a hybrid database approach for optimal performance and flexibility:
+
+### Database Support
+- **Supported Types**: PostgreSQL, MySQL, SQLite
+- **Note**: DB_TYPE configuration only supports `postgres`, `mysql`, or `sqlite` values
+
+### Hybrid Database Approach
+- **Initialization Phase**: SQLAlchemy ORM for schema creation, migrations, and initial setup
+- **Day-to-Day Operations**: PyDAL for rapid development and flexible data access patterns
+- **Migration Path**: SQLAlchemy handles schema management, PyDAL provides runtime flexibility
+
+### Required Dependencies
+```
+Flask>=3.0
+Flask-Security-Too>=5.1.0
+SQLAlchemy>=2.0
+PyDAL>=20.04
+PyMySQL  # for MySQL support
+psycopg2-binary  # for PostgreSQL support
+```
+
+## MariaDB Galera Cluster Requirements
 
 WaddlePerf is designed to work with MariaDB Galera Cluster for high availability. To maintain compatibility, follow these critical rules:
 
 ⚠️ **IMPORTANT**: Before making ANY database or schema changes, read [docs/DATABASE.md](docs/DATABASE.md) for complete Galera restrictions and best practices.
+
+### Cluster Configuration Requirements
+- **Minimum Version**: MariaDB 10.6 with Galera 4.x
+- **Replication Mode**: Row-based (binlog_format=ROW)
+- **Storage Engine**: InnoDB (required for Galera)
+- **Minimum Nodes**: 3 nodes for quorum (odd numbers recommended)
+- **Network**: Low-latency, reliable network between nodes (LAN recommended)
+- **Configuration**: wsrep_sync_wait=7 for read consistency
 
 ### Database Schema Requirements
 - **PRIMARY KEYS REQUIRED**: All tables MUST have a primary key (multi-column keys are supported)
@@ -91,8 +165,35 @@ WaddlePerf is designed to work with MariaDB Galera Cluster for high availability
 - Read performance can scale horizontally across nodes
 - Network latency between nodes directly impacts commit times
 
+## Container Architecture
+
+WaddlePerf uses a microservices architecture with separated API/Backend and WebUI components:
+
+### Service Containers
+- **API/Backend Container**: Flask-based REST API and business logic
+  - Handles all database operations
+  - Processes test requests and results
+  - Manages authentication and authorization via Flask-Security-Too
+  - Exposes REST endpoints for client communication
+
+- **WebUI Container**: React-based frontend application
+  - Standalone nginx-based web server
+  - Communicates with API Container via REST API
+  - Runs on port 8080 (configurable)
+  - Independent scaling from backend
+
+- **Database Container**: MariaDB Galera Cluster
+  - Shared database for all services
+  - High availability configuration
+  - Persistent volume for data storage
+
+### Communication Patterns
+- WebUI → API: HTTPS/HTTP REST calls
+- API → Database: SQL queries via PyDAL/SQLAlchemy
+- Multiple API instances can run in parallel with load balancing
+
 ## Docker Image Standards
-- **Python services**: MUST use Debian-based images (e.g., `python:3.12-slim` or `python:3.12`)
+- **Python services**: MUST use Debian-based images (e.g., `python:3.13-slim` or `python:3.13`)
   - Alpine images cause compilation issues with packages like gevent, bcrypt, cryptography
   - Debian images provide better compatibility and faster builds
 - **Go services**: Use Debian-based images for build stage (e.g., `golang:1.23-bookworm`), Alpine for runtime
@@ -504,17 +605,229 @@ See detailed documentation in:
 For AI-powered performance analysis and anomaly detection, WaddlePerf can integrate with WaddleAI located at `~/code/WaddleAI`.
 
 **Use Cases for WaddlePerf:**
-- Intelligent performance anomaly detection
-- Predictive network issue identification
-- Natural language query of performance data
-- Automated root cause analysis
-- Smart alerting and recommendations
+- Intelligent performance anomaly detection with statistical analysis
+- Predictive network issue identification using ML models
+- Natural language queries for performance data analysis
+- Automated root cause analysis and recommendations
+- Smart alerting and intelligent notifications
+
+**Enhanced Capabilities:**
+- **Anomaly Detection**: Automatically identify unusual network patterns and performance deviations
+- **Predictive Analysis**: Forecast network degradation before issues impact users
+- **Natural Language Queries**: Ask questions like "What caused the spike at 3pm?" and get intelligent responses
 
 **Integration Pattern:**
 - WaddleAI runs as separate microservice container
 - Communicate via REST API or gRPC
-- Environment variable configuration for API endpoints
+- Environment variables: `WADDLEAI_URL`, `WADDLEAI_API_KEY`
 - License-gate AI features as enterprise functionality
+- Test data flow with mock performance metrics in development
+
+**Implementation Checklist:**
+- Add WaddleAI service to `docker-compose.yml`
+- Implement API client in Flask backend
+- Add anomaly detection endpoint: `POST /api/v1/analysis/anomalies`
+- Add prediction endpoint: `POST /api/v1/analysis/predict`
+- Add NLP query endpoint: `POST /api/v1/analysis/query`
+- Store analysis results in PostgreSQL for historical tracking
+- Feature-gate under `WADDLEAI_ENABLED` license flag
+
+## Development Standards
+
+WaddlePerf follows comprehensive development standards to ensure quality, consistency, and maintainability across all components.
+
+**Multi-Tier Testing Approach:**
+- **Tier 1 (Smoke Tests)**: Basic connectivity, API health, UI loads, build verification
+  - Run on every commit, must complete in <2 minutes
+  - Validates core functionality hasn't broken
+  - Required before merging to main
+- **Tier 2 (Integration Tests)**: Component interactions, database operations, multi-service scenarios
+  - Runs on feature branches and main
+  - Tests Flask-React integration, performance metric collection, S3 integration
+  - Must complete in <5 minutes
+- **Tier 3 (Comprehensive Tests)**: Performance benchmarks, load testing, cross-platform validation
+  - Runs nightly or pre-release
+  - Validates Tier 2 and Tier 3 testing in network scenarios
+  - Tests multi-node Galera cluster, cross-architecture builds
+
+**Code Quality Standards:**
+- All Python code: flake8, black, isort, mypy, bandit
+- All Go code: golangci-lint, gosec, gofmt, govet
+- JavaScript/React: ESLint, Prettier
+- Security scanning mandatory before every commit
+- No commits with outstanding security vulnerabilities
+- Type hints required for all Python and TypeScript code
+
+**Database Standards for WaddlePerf:**
+- PyDAL for all runtime operations (SQLAlchemy for initialization only)
+- All database changes must consider MariaDB Galera compatibility
+- Review [docs/DATABASE.md](docs/DATABASE.md) before schema modifications
+- Test changes against multi-node cluster configuration
+- Use transactions for data consistency across test results
+
+## Application Architecture
+
+**Microservices Architecture** - WaddlePerf uses three main containers:
+
+1. **API/Backend Container** (Flask)
+   - REST API endpoints for test operations
+   - Authentication and authorization via Flask-Security-Too
+   - Database operations via PyDAL
+   - S3 integration for result storage
+   - Performance metric aggregation
+   - License validation and feature gating
+   - Runs on port 5000 (internal), exposed via MarchProxy
+
+2. **WebUI Container** (React + nginx)
+   - React-based dashboard for performance visualization
+   - Role-based access control (Admin, Maintainer, Viewer)
+   - Real-time test status monitoring
+   - Historical performance charts and reports
+   - Geographic performance heatmaps
+   - Runs on port 8080, independent from API
+
+3. **Database Container** (MariaDB Galera)
+   - Centralized data storage for all services
+   - Test results, network metrics, user data
+   - High availability with multi-node replication
+   - Persistent volumes for data retention
+
+**Service Communication:**
+- WebUI ↔ API: HTTPS/HTTP REST calls
+- API ↔ Database: SQL queries via PyDAL
+- Multiple API instances scale horizontally behind load balancer
+- WaddleAI service (optional): REST/gRPC for analysis features
+
+**Architecture Benefits:**
+- Independent scaling of frontend and backend
+- Technology-specific optimization per service
+- Separate deployment lifecycles
+- Enhanced resilience through service isolation
+
+## Common Integration Patterns
+
+**Flask Backend + React Frontend + Performance Testing Integration:**
+
+1. **API Endpoint Pattern** (Flask Backend)
+   ```python
+   @api_v1.route('/tests/run', methods=['POST'])
+   @jwt_required()
+   def run_test():
+       # Validate license
+       if not check_feature('advanced_tests'):
+           return {'error': 'Feature not available'}, 403
+       # Create test job in database via PyDAL
+       # Queue for background execution
+       # Return test_id for status polling
+       return {'test_id': job_id, 'status': 'queued'}
+   ```
+
+2. **React Component Pattern** (WebUI)
+   - Component queries `/api/v1/tests/{test_id}/status`
+   - Updates chart data with new metrics
+   - Handles role-based visibility (Admin sees all, Viewer sees filtered)
+   - Caches results locally for performance
+
+3. **Performance Testing Integration**
+   - Test execution runs in background worker
+   - Results stored in PostgreSQL via PyDAL
+   - Metrics aggregated by geographic region
+   - S3 stores large result files (packet captures, logs)
+   - WebUI polls for updates or uses WebSocket for real-time
+
+4. **Multi-Tier Testing Flow**
+   - Tier 1: Quick connectivity check (30 seconds)
+   - If pass → return success
+   - If fail → escalate to Tier 2 (2 minutes)
+   - If Tier 2 fails → escalate to Tier 3 (5 minutes)
+   - Store results with escalation metadata
+
+5. **Authentication Pattern**
+   - Flask-Security-Too issues JWT tokens
+   - React stores token in secure HTTP-only cookie
+   - All API calls include `Authorization: Bearer <token>`
+   - Token refresh on 401 response
+   - License status validated per request
+
+## Website Integration Requirements
+
+WaddlePerf requires an integrated website for marketing and documentation:
+
+**Website Components:**
+- **Marketing Site**: Node.js-based, modern aesthetic, showcasing features
+  - Performance statistics and use cases
+  - Customer testimonials and case studies
+  - Feature comparison and pricing tiers
+  - Download links for clients
+
+- **Documentation Site**: Markdown-based, comprehensive developer guides
+  - API documentation with examples
+  - Client configuration guides
+  - Troubleshooting and FAQ
+  - Architecture and design decisions
+
+**Repository Integration:**
+- Sparse checkout submodule from `github.com/penguintechinc/website`
+- Folders: `waddleperf/` (marketing) and `waddleperf-docs/` (documentation)
+- Deployed separately from main application
+- Versioned alongside main release
+
+**Design Requirements:**
+- Modern, responsive UI with subtle gradients
+- Performance-focused (lazy loading, optimized images)
+- Mobile-first approach for all pages
+- Dark mode support for documentation
+- Fast load times (<2 seconds first paint)
+
+## Template Customization
+
+**WaddlePerf-Specific Customizations:**
+
+1. **Network Protocol Support**
+   - Custom implementations for TCP, UDP, HTTP/HTTPS, SSH, DNS testing
+   - Located in `server/libs/` for protocol handlers
+   - `shared/py_libs/` for shared protocol utilities
+   - Test configuration via `client/vars/base.yml` and `server/vars/base.yml`
+
+2. **Performance Metric Collection**
+   - Custom dataclasses in `server/libs/metrics.py`
+   - Database schema in migrations for result storage
+   - Aggregation functions for multi-node analysis
+   - S3 integration for large result archives
+
+3. **Geographic Analysis**
+   - IP geolocation service integration
+   - Regional performance aggregation
+   - Heatmap generation for WebUI
+   - Timezone-aware result grouping
+
+4. **AutoPerf Mode**
+   - Scheduled test execution at configurable intervals
+   - Automatic escalation based on threshold breaches
+   - Result notification via email/webhook
+   - License-gated for enterprise use
+
+5. **Adding New Test Protocols**
+   - Create protocol handler in `server/libs/{protocol}/`
+   - Implement `TestBase` interface with setup/run/teardown
+   - Register in test registry
+   - Add WebUI component for protocol options
+   - Test with both Tier 1 and Tier 3 scenarios
+   - Update documentation with examples
+
+6. **Extending Flask Backend**
+   - Add endpoints in `server/web/api/routes/`
+   - Implement PyDAL queries for data access
+   - Add Flask-Security decorators for auth/roles
+   - Include license checks for premium features
+   - Follow REST conventions: `/api/v1/{resource}`
+
+7. **React Dashboard Extensions**
+   - Add components in `client/web/apps/components/`
+   - Implement Redux/Context for state management
+   - Use Tailwind CSS for styling consistency
+   - Add role-based conditional rendering
+   - Test with sample performance data
 
 ## Contact and Support
 - Organization: Penguin Technologies Inc.
