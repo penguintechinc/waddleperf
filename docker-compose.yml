@@ -10,8 +10,8 @@ services:
       MYSQL_DATABASE: ${DB_NAME:-waddleperf}
       MYSQL_USER: ${DB_USER:-waddleperf}
       MYSQL_PASSWORD: ${DB_PASS:-dev_password}
-    ports:
-      - "3306:3306"
+    expose:
+      - "3306"
     volumes:
       - mariadb_data:/var/lib/mysql
       - ./database/schema.sql:/docker-entrypoint-initdb.d/01-schema.sql:ro
