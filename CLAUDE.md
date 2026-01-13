@@ -1,7 +1,76 @@
-# CLAUDE.md - AI Assistant Context for WaddlePerf
+# WaddlePerf - Claude Code Context
 
 ## Project Overview
+
 WaddlePerf is a comprehensive network performance testing and monitoring platform that tests user experience between endpoints. It provides both client and server components for network diagnostics, bandwidth testing, and connectivity analysis.
+
+**Key Capabilities:**
+- Speed Testing: Browser-based bandwidth testing (download, upload, latency, jitter)
+- Network Diagnostics: Comprehensive HTTP/TCP/UDP/ICMP testing
+- Real-Time Monitoring: WebSocket-based live test progress
+- Multi-Client Support: Web, Desktop (Go), Container clients
+- Centralized Management: User authentication, API keys, organization units
+- Historical Analytics: Database-backed results storage and analysis
+
+## Architecture
+
+WaddlePerf 4.x uses a modern, containerized architecture with multiple components:
+
+### Components
+
+- **testServer** (Go) - High-performance test execution engine (single container)
+- **managerServer** (Python/Flask + React) - Centralized management and authentication (split: API + frontend containers)
+- **webClient** (Python/Flask + React) - Browser-based testing interface (split: API + frontend containers)
+- **containerClient** (Python) - Automated container-based testing (single container)
+- **go-client** (Go) - Cross-platform desktop client with GUI support (Linux, Windows, macOS)
+- **MariaDB Galera Cluster** - High-availability database with multi-master replication
+
+## Technology Stack
+
+### Languages & Frameworks
+- **Python 3.13**: Web applications, APIs, business logic
+- **Go 1.23**: High-performance test execution, desktop clients
+- **React 18**: Frontend applications (managerServer, webClient)
+- **Flask 3.0**: Backend API services
+- **Node.js 20**: Frontend build tooling
+
+### Infrastructure & DevOps
+- **Containers**: Docker with multi-stage builds, Docker Compose
+- **CI/CD**: GitHub Actions with comprehensive pipelines
+- **Database**: MariaDB 11.2 with Galera Cluster support
+- **Monitoring**: Prometheus metrics, Grafana dashboards
+- **Logging**: Structured logging with configurable levels
+
+## Essential Documentation
+
+📚 **[docs/DEVELOPMENT.md](docs/DEVELOPMENT.md)** - Local development setup guide
+- Prerequisites and installation
+- Environment configuration
+- Starting services locally
+- Development workflow and mock data injection
+
+📚 **[docs/TESTING.md](docs/TESTING.md)** - Testing & validation guide
+- Mock data scripts
+- Smoke tests (mandatory)
+- Unit, integration, and E2E testing
+- Performance testing procedures
+
+📚 **[docs/PRE_COMMIT.md](docs/PRE_COMMIT.md)** - Pre-commit checklist
+- Required steps before every commit
+- Smoke tests (mandatory, <2 min)
+- Security scanning requirements
+- Build and test verification
+
+📚 **[docs/DATABASE.md](docs/DATABASE.md)** - MariaDB Galera compatibility guide
+- Critical restrictions and requirements
+- Schema design best practices
+- Transaction and replication limitations
+
+📚 **[docs/STANDARDS.md](docs/STANDARDS.md)** - Development standards
+- API versioning
+- Database standards
+- Docker standards
+- Testing requirements
 
 ## Important Instructions for AI Assistants
 
@@ -13,217 +82,200 @@ WaddlePerf is a comprehensive network performance testing and monitoring platfor
    - Ensure all linting passes without errors
 3. **Verify functionality** - Test that your changes work as intended before moving on
 4. **No partial implementations** - If you start a feature, complete it entirely
+5. **NEVER commit automatically** - Only commit when explicitly requested by the user
 
 ## Project Structure
 
-### Client Component (`/client/`)
-- Python-based with py4web framework
-- Web UI at `client/web/apps/`
-- Testing tools in `client/bins/`
-- Ansible playbooks in `client/jobs/`
-- Configuration in `client/vars/base.yml`
-
-### Server Component (`/server/`)
-- Python Flask application
-- Web services in `server/web/`
-- Server utilities in `server/bins/`
-- LibreSpeed integration in `server/libs/speedtest/`
-- Configuration in `server/vars/base.yml`
-
-### Go Clients (`/go-client/`)
-- Currently in development phase
-- Will provide native desktop clients
-- Requires multi-platform builds (Linux, Windows, macOS)
-
-## Technology Stack
-- **Languages**: Python 3.12, Go 1.23
-- **Frameworks**: Flask 3.0 (APIs), React 18 (frontends)
-- **Infrastructure**: Docker, Docker Compose, MariaDB Galera
-- **Testing Tools**: Native implementations (HTTP/TCP/UDP/ICMP)
-- **CI/CD**: GitHub Actions
+```
+WaddlePerf/
+├── .github/workflows/        # CI/CD pipelines for each container
+├── testServer/              # Go high-performance test execution engine
+├── managerServer/           # Management server (API + frontend)
+│   ├── api/                 # Flask backend
+│   └── frontend/            # React frontend
+├── webClient/               # Web-based test client (API + frontend)
+│   ├── api/                 # Flask backend
+│   └── frontend/            # React frontend
+├── containerClient/         # Automated container-based testing
+├── go-client/               # Cross-platform desktop client
+├── database/                # Database schemas and migrations
+│   ├── schema.sql           # Core schema
+│   └── seeds/               # Development seed data
+├── docs/                    # Documentation
+│   ├── DEVELOPMENT.md       # Development setup
+│   ├── TESTING.md           # Testing guide
+│   ├── PRE_COMMIT.md        # Pre-commit checklist
+│   ├── DATABASE.md          # Database guide
+│   └── STANDARDS.md         # Development standards
+├── docker-compose.yml       # Production environment
+└── .version                 # Version tracking
+```
 
 ## MariaDB Galera Cluster Compatibility
 
-WaddlePerf is designed to work with MariaDB Galera Cluster for high availability. To maintain compatibility, follow these critical rules:
+⚠️ **CRITICAL**: Before making ANY database or schema changes, read [docs/DATABASE.md](docs/DATABASE.md) for complete Galera restrictions and best practices.
 
-⚠️ **IMPORTANT**: Before making ANY database or schema changes, read [docs/DATABASE.md](docs/DATABASE.md) for complete Galera restrictions and best practices.
-
-### Database Schema Requirements
-- **PRIMARY KEYS REQUIRED**: All tables MUST have a primary key (multi-column keys are supported)
-  - DELETE operations will FAIL on tables without primary keys
-  - Always define primary keys in schema migrations
+### Key Requirements
+- **PRIMARY KEYS REQUIRED**: All tables MUST have a primary key
 - **Use InnoDB only**: All tables must use InnoDB storage engine
-  - MyISAM has experimental support but should be avoided
-  - System tables (mysql.*) are not replicated
-
-### Locking Restrictions
-- **AVOID explicit table locks**: Do NOT use `LOCK TABLES` or `FLUSH TABLES {table_list} WITH READ LOCK`
-- **GET_LOCK() / RELEASE_LOCK()**: These functions are NOT supported
-- **Global locks ARE supported**: `FLUSH TABLES WITH READ LOCK` works for full database locks
-- **DDL does NOT wait**: DDL statements execute immediately without waiting for metadata locks from parallel DML transactions
-
-### Transaction and Replication Limitations
-- **NO distributed transactions (XA)**: Do not use XA transactions or two-phase commits
-- **Row-based replication only**: `binlog_format` must be ROW (never change at runtime)
-- **FLUSH PRIVILEGES not replicated**: After user/permission changes, run on ALL nodes or restart cluster
+- **AVOID explicit table locks**: Do NOT use `LOCK TABLES`
+- **NO distributed transactions (XA)**: Do not use XA transactions
+- **Row-based replication only**: `binlog_format` must be ROW
 - **Auto-increment gaps**: Do NOT rely on sequential auto-increment values
-  - Galera uses increment offsets to avoid conflicts
-  - Gaps in sequences are normal and expected
-
-### Operations to Avoid
-- **Large transactions**: Keep transactions small to avoid certification conflicts
-- **Hot spots**: Avoid high-contention updates to the same rows across nodes
-- **Long-running transactions**: May cause certification failures on commit
-- **Changing binlog_format at runtime**: Will crash ALL nodes in the cluster
-
-### Best Practices for WaddlePerf Development
-1. **Always define primary keys** in CREATE TABLE statements
-2. **Use InnoDB explicitly** for all tables
-3. **Keep transactions short** - commit frequently
-4. **Avoid table locks** - use row-level locking patterns
-5. **Test with multiple nodes** - verify no certification conflicts occur
-6. **Handle deadlocks gracefully** - Galera can have different deadlock patterns than standalone MariaDB
-7. **Monitor cluster status** - check `wsrep_cluster_status` and `wsrep_ready` variables
-
-### Performance Considerations
-- Cluster performance is limited by the **slowest node**
-- Write performance may be lower than standalone due to certification overhead
-- Read performance can scale horizontally across nodes
-- Network latency between nodes directly impacts commit times
 
 ## Docker Image Standards
-- **Python services**: MUST use Debian-based images (e.g., `python:3.12-slim` or `python:3.12`)
+
+- **Python services**: MUST use Debian-based images (e.g., `python:3.13-slim`)
   - Alpine images cause compilation issues with packages like gevent, bcrypt, cryptography
-  - Debian images provide better compatibility and faster builds
-- **Go services**: Use Debian-based images for build stage (e.g., `golang:1.23-bookworm`), Alpine for runtime
-  - Build stage: `golang:1.23-bookworm` - better compatibility, faster builds
-  - Runtime stage: `alpine:3.19` - minimal size for static binaries
+- **Go services**: Use Debian for build, Alpine for runtime
+  - Build stage: `golang:1.23-bookworm`
+  - Runtime stage: `alpine:3.19`
 - **Frontend services**: Use Alpine nginx (e.g., `nginx:alpine`)
-- **Node.js build stages**: Use Alpine (e.g., `node:18-alpine`)
+- **Node.js build stages**: Use Alpine (e.g., `node:20-alpine`)
 
-## Testing Requirements
+## Development Workflow
 
-### For Python Code
+### Quick Start
+
+```bash
+# Start all services
+docker-compose up -d
+
+# Rebuild after code changes (ALWAYS use --build)
+docker-compose down && docker-compose up -d --build
+
+# Rebuild single service
+docker-compose up -d --build <service-name>
+
+# View logs
+docker-compose logs -f <service-name>
+```
+
+### Testing Requirements
+
+**For Python Code:**
 - Use async and threading where possible for performance
-- Test with py4web's built-in testing if modifying web components
 - Verify Docker containers build and run successfully
+- Run linting: `flake8`, `black`, `isort`, `mypy`
 
-### For Go Code
+**For Go Code:**
 - Run `go mod tidy` to manage dependencies
 - Run `go fmt` for code formatting
 - Run `go vet` for static analysis
 - Run `go test ./...` for all tests
-- Build for target platforms before committing
+- Run `gosec ./...` for security scanning
 
-### For Docker
-- **ALWAYS** use `--no-cache` flag when building Docker images to ensure all changes are applied
-- **ALWAYS** use `docker-compose down -v` when rebuilding containers or clusters to remove cached volumes and avoid stale data
+**For Docker:**
+- **ALWAYS** use `--no-cache` flag when building Docker images
+- **ALWAYS** use `docker-compose down -v` when rebuilding clusters
 - Test builds with `docker-compose build --no-cache`
-- When rebuilding: `docker-compose down -v && docker-compose up -d`
 - Verify containers run with `docker-compose up -d`
-- Check health endpoints work correctly
 
-## Build Commands
+### Pre-Commit Requirements
 
-### Client Docker Build
+**CRITICAL: Run before every commit:**
+
 ```bash
-docker build -t waddleperf-client ./client
+./scripts/pre-commit/pre-commit.sh
 ```
 
-### Server Docker Build
-```bash
-docker build -t waddleperf-server ./server
-```
+This includes:
+1. Linters (Python, Go, Node.js)
+2. Security scans (gosec, bandit, npm audit)
+3. No secrets check
+4. Build & run verification
+5. Smoke tests (mandatory)
+6. Unit and integration tests
+7. Docker debian-slim validation
 
-### Go Client Build (multi-platform)
-```bash
-# Linux AMD64
-GOOS=linux GOARCH=amd64 go build -o waddleperf-linux-amd64
-
-# Linux ARM64
-GOOS=linux GOARCH=arm64 go build -o waddleperf-linux-arm64
-
-# Windows AMD64
-GOOS=windows GOARCH=amd64 go build -o waddleperf-windows-amd64.exe
-
-# macOS Universal (requires additional tooling)
-GOOS=darwin GOARCH=amd64 go build -o waddleperf-darwin-amd64
-GOOS=darwin GOARCH=arm64 go build -o waddleperf-darwin-arm64
-# Then use lipo to create universal binary
-```
-
-## Testing Approach
-WaddlePerf uses a 3-tier testing system:
-1. **Tier 1**: Basic connectivity tests (frequent)
-2. **Tier 2**: Intermediate diagnostics (on threshold breach)
-3. **Tier 3**: Comprehensive analysis (on critical issues)
-
-## Configuration Files
-- Docker Compose: `/docker-compose.yml`
-- Client config: `/client/vars/base.yml`
-- Server config: `/server/vars/base.yml`
-- GitHub Actions: `/.github/workflows/`
+📚 See [docs/PRE_COMMIT.md](docs/PRE_COMMIT.md) for complete checklist
 
 ## Network Ports
-- HTTP: 80
-- HTTPS: 443
-- iperf3: 5201
-- Web UI: 8080
-- UDP Ping: 2000
 
-## Development Workflow
-1. Make changes in feature branch
-2. Test thoroughly (unit, integration, Docker builds)
-3. Lint and format code
-4. Update documentation if needed
-5. Create pull request to main branch
+- **8080**: testServer (HTTP API)
+- **5000**: managerServer API (Flask)
+- **50051**: managerServer gRPC
+- **3000**: managerServer frontend (React)
+- **5001**: webClient API (Flask)
+- **3001**: webClient frontend (React)
+- **3306**: MariaDB (internal)
+- **8081**: Adminer (database UI)
+
+## Version Management
+
+**Format**: `vMajor.Minor.Patch.build`
+
+**Update Commands**:
+```bash
+./scripts/version/update-version.sh          # Increment build timestamp
+./scripts/version/update-version.sh patch    # Increment patch version
+./scripts/version/update-version.sh minor    # Increment minor version
+./scripts/version/update-version.sh major    # Increment major version
+```
+
+## Git Workflow
+
+- **NEVER commit automatically** unless explicitly requested by user
+- **NEVER push to remote repositories** under any circumstances
+- Always use feature branches for development
+- Run pre-commit checks before every commit
+- Update documentation with code changes
 
 ## Key Features to Maintain
+
 - AutoPerf mode for continuous monitoring
 - Multi-tier escalation testing
 - S3 integration for results storage
 - Geographic IP analysis
-- Multiple protocol support (TCP, UDP, HTTP, HTTPS, SSH, DNS)
+- Multiple protocol support (TCP, UDP, HTTP, HTTPS, ICMP)
+- Real-time WebSocket progress updates
+- JWT-based authentication
+- API key management
+- Organization unit support
 
 ## Security Considerations
-- Containers run as non-root user (www-data)
+
+- Containers run as non-root user
 - SSL/TLS certificate management
 - Input validation for all user inputs
 - No hardcoded secrets or credentials
-- Use environment variables for configuration
-
-## Documentation
-- Main docs in `/docs/` folder
-- README.md for overview
-- RELEASE_NOTES.md for version history
-- In-code comments for complex logic only
+- Environment variables for configuration
+- JWT and MFA authentication
+- CodeQL security analysis required
 
 ## Common Tasks
 
 ### Adding a New Test Tool
-1. Add binary to appropriate bins/ folder
-2. Create wrapper function in Python
-3. Update Ansible playbook to install
-4. Add to configuration variables
+1. Add implementation to appropriate service
+2. Update API endpoints
+3. Add frontend UI components
+4. Update database schema if needed
 5. Test in Docker container
 6. Document usage
 
 ### Updating Dependencies
-1. Python: Update requirements.txt
-2. Go: Update go.mod and run `go mod tidy`
-3. Docker: Update base images in Dockerfiles
-4. Test all changes thoroughly
+1. **Python**: Update requirements.txt
+2. **Go**: Update go.mod and run `go mod tidy`
+3. **Node.js**: Update package.json and package-lock.json
+4. **Docker**: Update base images in Dockerfiles
+5. Run security scans: `npm audit`, `gosec`, `bandit`
+6. Test all changes thoroughly
 
 ### Creating a Release
-1. Update version numbers
+1. Update version with `./scripts/version/update-version.sh`
 2. Update RELEASE_NOTES.md
 3. Test all components
-4. Tag release in git
-5. GitHub Actions will build and publish
+4. Run full pre-commit validation
+5. Tag release in git
+6. GitHub Actions will build and publish
 
 ## Contact and Support
-- Organization: Penguin Technologies Inc.
-- Repository: https://github.com/penguintechinc/WaddlePerf
-- Issues: Report at GitHub Issues page
 
-Remember: Always complete tasks fully, test thoroughly, and never leave placeholders!
+- **Organization**: Penguin Technologies Inc.
+- **Repository**: https://github.com/penguintechinc/WaddlePerf
+- **Issues**: Report at GitHub Issues page
+- **Support**: support@penguintech.io
+
+---
+
+**Remember**: Always complete tasks fully, test thoroughly, run pre-commit checks, and never leave placeholders!
