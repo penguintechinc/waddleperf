@@ -1,0 +1,117 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: managerserver-frontend
+  namespace: waddleperf
+  labels:
+    app: managerserver-frontend
+    version: v1
+spec:
+  replicas: 3
+  selector:
+    matchLabels:
+      app: managerserver-frontend
+  template:
+    metadata:
+      labels:
+        app: managerserver-frontend
+        version: v1
+    spec:
+      containers:
+      - name: managerserver-frontend
+        image: registry-dal2.penguintech.io/waddleperf/managerserver-frontend:latest
+        imagePullPolicy: Always
+        ports:
+        - name: http
+          containerPort: 5000
+          protocol: TCP
+        env:
+        - name: PORT
+          value: "5000"
+        - name: WORKERS
+          value: "4"
+        - name: WORKER_CLASS
+          value: "gevent"
+        - name: TIMEOUT
+          value: "120"
+        - name: LOG_LEVEL
+          value: "info"
+        resources:
+          requests:
+            cpu: 250m
+            memory: 256Mi
+          limits:
+            cpu: 1000m
+            memory: 1Gi
+        livenessProbe:
+          httpGet:
+            path: /health
+            port: http
+          initialDelaySeconds: 15
+          periodSeconds: 10
+          timeoutSeconds: 5
+          failureThreshold: 3
+        readinessProbe:
+          httpGet:
+            path: /health
+            port: http
+          initialDelaySeconds: 5
+          periodSeconds: 5
+          timeoutSeconds: 3
+          failureThreshold: 2
+      serviceAccountName: managerserver-frontend
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: managerserver-frontend
+  namespace: waddleperf
+  labels:
+    app: managerserver-frontend
+spec:
+  type: ClusterIP
+  selector:
+    app: managerserver-frontend
+  ports:
+  - name: http
+    port: 80
+    targetPort: http
+    protocol: TCP
+---
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: managerserver-frontend
+  namespace: waddleperf
+  labels:
+    app: managerserver-frontend
+  annotations:
+    cert-manager.io/cluster-issuer: letsencrypt-prod
+    nginx.ingress.kubernetes.io/ssl-redirect: "true"
+    nginx.ingress.kubernetes.io/force-ssl-redirect: "true"
+    nginx.ingress.kubernetes.io/proxy-body-size: "10m"
+spec:
+  ingressClassName: nginx
+  tls:
+  - hosts:
+    - manager.waddleperf.penguintech.io
+    secretName: managerserver-frontend-tls-cert
+  rules:
+  - host: manager.waddleperf.penguintech.io
+    http:
+      paths:
+      - path: /
+        pathType: Prefix
+        backend:
+          service:
+            name: managerserver-frontend
+            port:
+              name: http
+---
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: managerserver-frontend
+  namespace: waddleperf
+  labels:
+    app: managerserver-frontend
