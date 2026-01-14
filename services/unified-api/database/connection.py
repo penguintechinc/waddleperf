@@ -1,4 +1,4 @@
-"""PyDAL database connection manager with multi-database support"""
+"""PyDAL database connection manager for runtime operations"""
 import logging
 from typing import Optional
 from pydal import DAL, Field
@@ -8,7 +8,8 @@ logger = logging.getLogger(__name__)
 
 def get_dal(config) -> DAL:
     """
-    Initialize and return a PyDAL instance with database connection.
+    Initialize and return a PyDAL instance for runtime database operations.
+    Schema initialization should be done separately using SQLAlchemy.
 
     Args:
         config: Configuration object with DB_TYPE, DB_HOST, DB_PORT, DB_USER, DB_PASS, DB_NAME
@@ -30,23 +31,27 @@ def get_dal(config) -> DAL:
     logger.info(f"Initializing PyDAL with DB_TYPE: {config.DB_TYPE}")
 
     # Initialize DAL with connection pooling
+    # Use migrate=False since SQLAlchemy handles schema creation
     dal = DAL(
         db_uri,
         pool_size=config.DB_POOL_SIZE,
-        migrate=True,
+        migrate=False,  # SQLAlchemy handles schema, PyDAL only for operations
         fake_migrate=False,
-        check_reserved=['all']
+        check_reserved=['all'],
+        folder='/tmp'  # Store metadata in /tmp
     )
 
-    # Call model definition functions to register all tables
+    # Define table schemas for PyDAL to use (must match SQLAlchemy schema)
     _define_models(dal)
 
+    logger.info("PyDAL initialized successfully")
     return dal
 
 
 def _define_models(dal: DAL) -> None:
     """
-    Define all database models/tables.
+    Define table schemas in PyDAL to match SQLAlchemy-created tables.
+    This allows PyDAL to perform runtime operations on existing tables.
 
     Args:
         dal: DAL instance to register models with
@@ -54,58 +59,61 @@ def _define_models(dal: DAL) -> None:
     # Users table (for authentication)
     dal.define_table(
         'users',
-        Field('email', 'string', unique=True, required=True),
-        Field('username', 'string', unique=True, required=True),
-        Field('password_hash', 'string', required=True),
+        Field('id', 'id'),
+        Field('email', 'string'),
+        Field('username', 'string'),
+        Field('password_hash', 'string'),
         Field('first_name', 'string'),
         Field('last_name', 'string'),
         Field('is_active', 'boolean', default=True),
-        Field('role', 'string', default='viewer'),  # admin, maintainer, viewer
+        Field('role', 'string', default='viewer'),
         Field('last_login', 'datetime'),
-        Field('created_at', 'datetime', default=lambda: __import__('datetime').datetime.utcnow()),
-        Field('updated_at', 'datetime', default=lambda: __import__('datetime').datetime.utcnow(),
-              update=lambda: __import__('datetime').datetime.utcnow()),
-        migrate=True
+        Field('created_at', 'datetime'),
+        Field('updated_at', 'datetime'),
+        migrate=False  # Don't migrate, table already exists
     )
 
-    # API Keys table for service-to-service auth
+    # API Keys table
     dal.define_table(
         'api_keys',
-        Field('user_id', 'reference users', required=True, ondelete='CASCADE'),
-        Field('key_hash', 'string', unique=True, required=True),
+        Field('id', 'id'),
+        Field('user_id', 'reference users'),
+        Field('key_hash', 'string'),
         Field('name', 'string'),
         Field('is_active', 'boolean', default=True),
         Field('last_used', 'datetime'),
-        Field('created_at', 'datetime', default=lambda: __import__('datetime').datetime.utcnow()),
-        migrate=True
+        Field('created_at', 'datetime'),
+        migrate=False
     )
 
     # Audit log table
     dal.define_table(
         'audit_logs',
+        Field('id', 'id'),
         Field('user_id', 'reference users'),
-        Field('action', 'string', required=True),
+        Field('action_type', 'string'),  # Renamed from 'action' to avoid reserved keyword
         Field('resource_type', 'string'),
         Field('resource_id', 'string'),
         Field('details', 'text'),
         Field('ip_address', 'string'),
         Field('user_agent', 'string'),
-        Field('created_at', 'datetime', default=lambda: __import__('datetime').datetime.utcnow()),
-        migrate=True
+        Field('created_at', 'datetime'),
+        migrate=False
     )
 
     # Health checks data table
     dal.define_table(
         'health_checks',
-        Field('service_name', 'string', required=True),
-        Field('status', 'string', required=True),  # healthy, degraded, unhealthy
-        Field('message', 'text'),
+        Field('id', 'id'),
+        Field('service_name', 'string'),
+        Field('status', 'string'),
+        Field('status_message', 'text'),  # Renamed from 'message' to avoid reserved keyword
         Field('response_time_ms', 'integer'),
-        Field('checked_at', 'datetime', default=lambda: __import__('datetime').datetime.utcnow()),
-        migrate=True
+        Field('checked_at', 'datetime'),
+        migrate=False
     )
 
-    logger.info("Database models defined successfully")
+    logger.info("PyDAL models defined successfully")
 
 
 def close_dal(dal: DAL) -> None:

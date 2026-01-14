@@ -7,6 +7,7 @@ from quart_cors import cors
 from pydal import DAL
 
 from config import Config
+from database.schema import initialize_schema
 from database.connection import get_dal, close_dal
 from routes import auth_bp, organizations_bp, devices_bp
 
@@ -43,7 +44,13 @@ def create_app(config_obj: Optional[Config] = None) -> Quart:
     cors_origins = [origin.strip() for origin in config_obj.CORS_ORIGINS.split(',')]
     cors(app, allow_origin=cors_origins)
 
-    # Initialize database
+    # Initialize database schema (SQLAlchemy - one-time creation)
+    try:
+        initialize_schema(config_obj)
+    except Exception as e:
+        logger.warning(f"Schema initialization warning (may already exist): {str(e)}")
+
+    # Initialize PyDAL for runtime operations
     db = get_dal(config_obj)
     app.db = db
     app.config_obj = config_obj

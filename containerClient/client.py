@@ -39,12 +39,12 @@ class DeviceInfo:
 @dataclass
 class ClientConfig:
     """Client configuration from environment variables"""
-    auth_type: str = "none"
-    auth_jwt: Optional[str] = None
+    auth_type: str = "userpass"
     auth_user: Optional[str] = None
     auth_pass: Optional[str] = None
-    auth_apikey: Optional[str] = None
-    manager_url: str = "http://localhost:8080"
+    access_token: Optional[str] = None
+    refresh_token: Optional[str] = None
+    manager_url: str = "https://waddleperf.penguintech.io"
     test_server_url: str = "http://localhost:8081"
     run_seconds: int = 0
     enable_http_test: bool = True
@@ -77,6 +77,7 @@ class WaddlePerfClient:
         self.device_info = self._detect_device_info()
         self.logger = logging.getLogger(__name__)
         self.session: Optional[aiohttp.ClientSession] = None
+        self._token_lock = asyncio.Lock()  # Protect token updates
 
     def _detect_device_info(self) -> DeviceInfo:
         """Auto-detect device information"""
@@ -114,30 +115,108 @@ class WaddlePerfClient:
         timeout = aiohttp.ClientTimeout(total=30, connect=10)
         return aiohttp.ClientSession(timeout=timeout)
 
-    def _get_auth_headers(self) -> Dict[str, str]:
-        """Build authentication headers based on config"""
+    async def _login(self) -> bool:
+        """Authenticate with manager and obtain tokens"""
+        if not self.session:
+            self.session = await self._create_session()
+
+        if not self.config.auth_user or not self.config.auth_pass:
+            self.logger.error("Username and password required for authentication")
+            return False
+
+        login_url = f"{self.config.manager_url}/api/v1/auth/login"
         headers = {
             'Content-Type': 'application/json',
-            'User-Agent': f'WaddlePerf-containerClient/1.0'
+            'User-Agent': 'WaddlePerf-containerClient/1.0'
         }
 
-        if self.config.auth_type == "jwt" and self.config.auth_jwt:
-            headers['Authorization'] = f'Bearer {self.config.auth_jwt}'
-        elif self.config.auth_type == "apikey" and self.config.auth_apikey:
-            headers['X-API-Key'] = self.config.auth_apikey
-        elif self.config.auth_type == "userpass" and self.config.auth_user and self.config.auth_pass:
-            import base64
-            credentials = base64.b64encode(
-                f"{self.config.auth_user}:{self.config.auth_pass}".encode()
-            ).decode()
-            headers['Authorization'] = f'Basic {credentials}'
+        try:
+            async with self.session.post(
+                login_url,
+                json={
+                    'username': self.config.auth_user,
+                    'password': self.config.auth_pass
+                },
+                headers=headers
+            ) as response:
+                if response.status == 200:
+                    data = await response.json()
+                    self.config.access_token = data.get('access_token')
+                    self.config.refresh_token = data.get('refresh_token')
+                    self.logger.info("Successfully authenticated with manager")
+                    return True
+                else:
+                    error_text = await response.text()
+                    self.logger.error(f"Login failed: {response.status} - {error_text}")
+                    return False
+        except Exception as e:
+            self.logger.error(f"Login request failed: {e}")
+            return False
+
+    async def _refresh_token(self) -> bool:
+        """Refresh access token using refresh token"""
+        if not self.config.refresh_token:
+            self.logger.warning("No refresh token available, attempting login")
+            return await self._login()
+
+        if not self.session:
+            self.session = await self._create_session()
+
+        refresh_url = f"{self.config.manager_url}/api/v1/auth/refresh"
+        headers = {
+            'Content-Type': 'application/json',
+            'User-Agent': 'WaddlePerf-containerClient/1.0'
+        }
+
+        try:
+            async with self.session.post(
+                refresh_url,
+                json={'refresh_token': self.config.refresh_token},
+                headers=headers
+            ) as response:
+                if response.status == 200:
+                    data = await response.json()
+                    self.config.access_token = data.get('access_token')
+                    self.logger.debug("Token refreshed successfully")
+                    return True
+                else:
+                    self.logger.warning("Token refresh failed, attempting login")
+                    return await self._login()
+        except Exception as e:
+            self.logger.error(f"Token refresh request failed: {e}")
+            return await self._login()
+
+    async def _ensure_authenticated(self) -> bool:
+        """Ensure we have valid authentication tokens"""
+        async with self._token_lock:
+            if not self.config.access_token:
+                return await self._login()
+            return True
+
+    def _get_auth_headers(self) -> Dict[str, str]:
+        """Build authentication headers with Bearer token"""
+        headers = {
+            'Content-Type': 'application/json',
+            'User-Agent': 'WaddlePerf-containerClient/1.0'
+        }
+
+        if self.config.access_token:
+            headers['Authorization'] = f'Bearer {self.config.access_token}'
 
         return headers
 
     async def _upload_result(self, result_data: Dict) -> bool:
         """Upload test result to manager server"""
+        # Ensure authentication before uploading
+        if not await self._ensure_authenticated():
+            self.logger.error("Failed to authenticate before uploading result")
+            return False
+
         if not self.session:
             self.session = await self._create_session()
+
+        # Refresh token before request
+        await self._refresh_token()
 
         # Add device info to result
         result_data['device_serial'] = self.device_info.serial
@@ -146,7 +225,7 @@ class WaddlePerfClient:
         result_data['device_os_version'] = self.device_info.os_version
         result_data['timestamp'] = datetime.now().astimezone().isoformat()
 
-        upload_url = f"{self.config.manager_url}/api/v1/results/upload"
+        upload_url = f"{self.config.manager_url}/api/v1/tests/"
         headers = self._get_auth_headers()
 
         try:
@@ -344,13 +423,12 @@ def load_config_from_env() -> ClientConfig:
     """Load configuration from environment variables"""
     config = ClientConfig()
 
-    config.auth_type = os.getenv('AUTH_TYPE', 'none').lower()
-    config.auth_jwt = os.getenv('AUTH_JWT')
     config.auth_user = os.getenv('AUTH_USER')
     config.auth_pass = os.getenv('AUTH_PASS')
-    config.auth_apikey = os.getenv('AUTH_APIKEY')
+    config.access_token = os.getenv('ACCESS_TOKEN')
+    config.refresh_token = os.getenv('REFRESH_TOKEN')
 
-    config.manager_url = os.getenv('MANAGER_URL', 'http://localhost:8080')
+    config.manager_url = os.getenv('MANAGER_URL', 'https://waddleperf.penguintech.io')
     config.test_server_url = os.getenv('TEST_SERVER_URL', 'http://localhost:8081')
 
     config.run_seconds = int(os.getenv('RUN_SECONDS', '0'))

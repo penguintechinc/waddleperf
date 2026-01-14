@@ -76,6 +76,8 @@ export interface LoginResponse {
     role: string
   }
   session_id: string
+  access_token: string
+  refresh_token: string
 }
 
 export interface AuthStatusResponse {
@@ -136,8 +138,7 @@ export const checkAuthStatus = async (): Promise<AuthStatusResponse> => {
 }
 
 export const runTest = async (testRequest: TestRequest): Promise<TestResult> => {
-  const { test_type, ...params } = testRequest
-  const response = await api.post<TestResult>(`/api/test/${test_type}`, params)
+  const response = await api.post<TestResult>('/api/v1/tests/', testRequest)
   return response.data
 }
 
