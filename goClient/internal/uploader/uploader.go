@@ -7,8 +7,6 @@ import (
 	"io"
 	"net/http"
 	"time"
-
-	"github.com/penguintechinc/WaddlePerf/goClient/internal/device"
 )
 
 type TestResultUpload struct {

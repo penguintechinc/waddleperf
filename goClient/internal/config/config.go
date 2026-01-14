@@ -22,6 +22,7 @@ type ManagerConfig struct {
 	APIKey            string `yaml:"api_key"`
 	AccessTokenPath   string `yaml:"access_token_path"`
 	RefreshTokenPath  string `yaml:"refresh_token_path"`
+	OrganizationID    string `yaml:"organization_id"`
 }
 
 type TestServerConfig struct {

@@ -82,7 +82,7 @@ const Profile: React.FC = () => {
     if (!authUser) return;
 
     try {
-      await api.changePassword(authUser.id, { password: newPassword });
+      await api.changeUserPassword(authUser.id, { password: newPassword });
       setSuccess('Password changed successfully!');
       setShowPasswordChange(false);
       setNewPassword('');

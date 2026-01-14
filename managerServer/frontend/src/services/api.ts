@@ -136,7 +136,7 @@ class ApiService {
     return response.data;
   }
 
-  async changePassword(userId: number, data: ChangePasswordRequest): Promise<{ message: string }> {
+  async changeUserPassword(userId: number, data: ChangePasswordRequest): Promise<{ message: string }> {
     const response = await this.client.put(`/api/v1/users/${userId}/password`, data);
     return response.data;
   }
@@ -147,29 +147,31 @@ class ApiService {
   }
 
   async listOrganizations(): Promise<{ organizations: OrganizationUnit[] }> {
-    const response = await this.client.get('/api/v1/organizations');
+    const response = await this.client.get('/api/v1/orgs');
     return response.data;
   }
 
   async getOrganization(orgId: number): Promise<OrganizationUnit> {
-    const response = await this.client.get<OrganizationUnit>(`/api/v1/organizations/${orgId}`);
+    const response = await this.client.get<OrganizationUnit>(`/api/v1/orgs/${orgId}`);
     return response.data;
   }
 
   async createOrganization(orgData: CreateOrganizationRequest): Promise<OrganizationUnit> {
-    const response = await this.client.post<OrganizationUnit>('/api/v1/organizations', orgData);
+    const response = await this.client.post<OrganizationUnit>('/api/v1/orgs', orgData);
     return response.data;
   }
 
   async getRecentTests(limit = 100): Promise<{ results: TestResult[] }> {
-    const response = await this.client.get('/api/v1/statistics/recent', {
+    const response = await this.client.get('/api/v1/stats/recent', {
       params: { limit }
     });
     return response.data;
   }
 
-  async getDeviceStats(deviceSerial: string): Promise<{ device: string; statistics: any[] }> {
-    const response = await this.client.get(`/api/v1/statistics/device/${deviceSerial}`);
+  async getDeviceStats(deviceId: string): Promise<{ device: string; statistics: any[] }> {
+    const response = await this.client.get('/api/v1/stats/by-device', {
+      params: { device_id: deviceId }
+    });
     return response.data;
   }
 

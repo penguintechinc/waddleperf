@@ -170,12 +170,12 @@ func (s *Scheduler) RunTests() error {
 	log.Printf("Tests completed. Uploading %d results...", len(results))
 	for _, result := range results {
 		if err := s.uploader.UploadResult(result); err != nil {
-			log.Printf("Failed to upload result for %s: %v", result.Target, err)
+			log.Printf("Failed to upload result for %s: %v", result.Name, err)
 			s.mu.Lock()
 			s.failureCount++
 			s.mu.Unlock()
 		} else {
-			log.Printf("Successfully uploaded result for %s", result.Target)
+			log.Printf("Successfully uploaded result for %s", result.Name)
 			s.mu.Lock()
 			s.successCount++
 			s.mu.Unlock()
@@ -196,29 +196,19 @@ func (s *Scheduler) runHTTPTest(target string) *uploader.TestResultUpload {
 	result, err := protocols.TestHTTP(req)
 	if err != nil {
 		log.Printf("HTTP test failed for %s: %v", target, err)
-		return &uploader.TestResultUpload{
-			DeviceInfo:     s.deviceInfo,
-			TestType:       "http",
-			ProtocolDetail: req.Protocol,
-			Target:         target,
-			Success:        false,
-			RawResults:     map[string]string{"error": err.Error()},
-			Timestamp:      time.Now(),
-		}
+		return s.buildTestResult("http", target, false, 0, map[string]interface{}{
+			"error":    err.Error(),
+			"protocol": req.Protocol,
+		})
 	}
 
-	return &uploader.TestResultUpload{
-		DeviceInfo:     s.deviceInfo,
-		TestType:       "http",
-		ProtocolDetail: result.ConnectedProto,
-		Target:         target,
-		TargetIP:       resolveHostname(target),
-		LatencyMS:      result.LatencyMS,
-		ThroughputMBps: result.TransferSpeedMBs,
-		Success:        result.Success,
-		RawResults:     result,
-		Timestamp:      time.Now(),
-	}
+	return s.buildTestResult("http", target, result.Success, result.LatencyMS, map[string]interface{}{
+		"protocol":          result.ConnectedProto,
+		"latency_ms":        result.LatencyMS,
+		"throughput_mbps":   result.TransferSpeedMBs,
+		"status_code":       result.StatusCode,
+		"content_length_kb": result.ContentLengthKB,
+	})
 }
 
 func (s *Scheduler) runTCPTest(target config.TCPTargetConfig) *uploader.TestResultUpload {
@@ -231,28 +221,16 @@ func (s *Scheduler) runTCPTest(target config.TCPTargetConfig) *uploader.TestResu
 	result, err := protocols.TestTCP(req)
 	if err != nil {
 		log.Printf("TCP test failed for %s: %v", target.Address, err)
-		return &uploader.TestResultUpload{
-			DeviceInfo:     s.deviceInfo,
-			TestType:       "tcp",
-			ProtocolDetail: target.Protocol,
-			Target:         target.Address,
-			Success:        false,
-			RawResults:     map[string]string{"error": err.Error()},
-			Timestamp:      time.Now(),
-		}
+		return s.buildTestResult("tcp", target.Address, false, 0, map[string]interface{}{
+			"error":    err.Error(),
+			"protocol": target.Protocol,
+		})
 	}
 
-	return &uploader.TestResultUpload{
-		DeviceInfo:     s.deviceInfo,
-		TestType:       "tcp",
-		ProtocolDetail: target.Protocol,
-		Target:         target.Address,
-		TargetIP:       resolveHostname(target.Address),
-		LatencyMS:      result.LatencyMS,
-		Success:        result.Success,
-		RawResults:     result,
-		Timestamp:      time.Now(),
-	}
+	return s.buildTestResult("tcp", target.Address, result.Success, result.LatencyMS, map[string]interface{}{
+		"protocol":   target.Protocol,
+		"latency_ms": result.LatencyMS,
+	})
 }
 
 func (s *Scheduler) runUDPTest(target config.UDPTargetConfig) *uploader.TestResultUpload {
@@ -266,28 +244,16 @@ func (s *Scheduler) runUDPTest(target config.UDPTargetConfig) *uploader.TestResu
 	result, err := protocols.TestUDP(req)
 	if err != nil {
 		log.Printf("UDP test failed for %s: %v", target.Address, err)
-		return &uploader.TestResultUpload{
-			DeviceInfo:     s.deviceInfo,
-			TestType:       "udp",
-			ProtocolDetail: target.Protocol,
-			Target:         target.Address,
-			Success:        false,
-			RawResults:     map[string]string{"error": err.Error()},
-			Timestamp:      time.Now(),
-		}
+		return s.buildTestResult("udp", target.Address, false, 0, map[string]interface{}{
+			"error":    err.Error(),
+			"protocol": target.Protocol,
+		})
 	}
 
-	return &uploader.TestResultUpload{
-		DeviceInfo:     s.deviceInfo,
-		TestType:       "udp",
-		ProtocolDetail: target.Protocol,
-		Target:         target.Address,
-		TargetIP:       resolveHostname(target.Address),
-		LatencyMS:      result.LatencyMS,
-		Success:        result.Success,
-		RawResults:     result,
-		Timestamp:      time.Now(),
-	}
+	return s.buildTestResult("udp", target.Address, result.Success, result.LatencyMS, map[string]interface{}{
+		"protocol":   target.Protocol,
+		"latency_ms": result.LatencyMS,
+	})
 }
 
 func (s *Scheduler) runICMPTest(target string) *uploader.TestResultUpload {
@@ -301,15 +267,10 @@ func (s *Scheduler) runICMPTest(target string) *uploader.TestResultUpload {
 	result, err := protocols.TestICMP(req)
 	if err != nil {
 		log.Printf("ICMP test failed for %s: %v", target, err)
-		return &uploader.TestResultUpload{
-			DeviceInfo:     s.deviceInfo,
-			TestType:       "icmp",
-			ProtocolDetail: req.Protocol,
-			Target:         target,
-			Success:        false,
-			RawResults:     map[string]string{"error": err.Error()},
-			Timestamp:      time.Now(),
-		}
+		return s.buildTestResult("icmp", target, false, 0, map[string]interface{}{
+			"error":    err.Error(),
+			"protocol": req.Protocol,
+		})
 	}
 
 	packetLoss := 0.0
@@ -317,19 +278,14 @@ func (s *Scheduler) runICMPTest(target string) *uploader.TestResultUpload {
 		packetLoss = float64(result.PacketsSent-result.PacketsReceived) / float64(result.PacketsSent) * 100.0
 	}
 
-	return &uploader.TestResultUpload{
-		DeviceInfo:        s.deviceInfo,
-		TestType:          "icmp",
-		ProtocolDetail:    req.Protocol,
-		Target:            target,
-		TargetIP:          resolveHostname(target),
-		LatencyMS:         result.LatencyMS,
-		JitterMS:          result.JitterMS,
-		PacketLossPercent: packetLoss,
-		Success:           result.Success,
-		RawResults:        result,
-		Timestamp:         time.Now(),
-	}
+	return s.buildTestResult("icmp", target, result.Success, result.LatencyMS, map[string]interface{}{
+		"protocol":            req.Protocol,
+		"latency_ms":          result.LatencyMS,
+		"jitter_ms":           result.JitterMS,
+		"packet_loss_percent": packetLoss,
+		"packets_sent":        result.PacketsSent,
+		"packets_received":    result.PacketsReceived,
+	})
 }
 
 func (s *Scheduler) GetStats() map[string]interface{} {
@@ -342,6 +298,30 @@ func (s *Scheduler) GetStats() map[string]interface{} {
 		"success_count":    s.successCount,
 		"failure_count":    s.failureCount,
 		"interval_seconds": s.config.Schedule.IntervalSeconds,
+	}
+}
+
+// buildTestResult creates a new TestResultUpload with the unified API format
+func (s *Scheduler) buildTestResult(testType, target string, success bool, latencyMS float64, metrics map[string]interface{}) *uploader.TestResultUpload {
+	return &uploader.TestResultUpload{
+		TestID:         fmt.Sprintf("%s-%s-%d", testType, target, time.Now().UnixNano()),
+		Name:           fmt.Sprintf("%s test to %s", testType, target),
+		OrganizationID: s.config.Manager.OrganizationID,
+		DeviceID:       s.deviceInfo.Serial,
+		Status:         "completed",
+		DurationMS:     int64(latencyMS),
+		Success:        success,
+		Metrics:        metrics,
+		Metadata: map[string]interface{}{
+			"device_serial":  s.deviceInfo.Serial,
+			"device_host":    s.deviceInfo.Hostname,
+			"device_os":      s.deviceInfo.OS,
+			"device_arch":    s.deviceInfo.Arch,
+			"test_type":      testType,
+			"target":         target,
+			"target_ip":      resolveHostname(target),
+			"timestamp":      time.Now().Format(time.RFC3339),
+		},
 	}
 }
 
