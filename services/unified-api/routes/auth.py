@@ -65,11 +65,11 @@ def _verify_token(f):
 
 @auth_bp.route('/login', methods=['POST'])
 async def login():
-    """Authenticate user with email and password
+    """Authenticate user with email/username and password
 
     Request body:
         {
-            "email": "user@example.com",
+            "email": "user@example.com",  // or "username": "user"
             "password": "password123",
             "mfa_token": "123456" (optional)
         }
@@ -85,7 +85,8 @@ async def login():
     """
     try:
         data = await request.get_json()
-        email = data.get('email', '').strip()
+        # Support both email and username fields for flexibility
+        email = data.get('email', '').strip() or data.get('username', '').strip()
         password = data.get('password', '')
         mfa_token = data.get('mfa_token')
 

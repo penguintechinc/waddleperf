@@ -118,14 +118,14 @@ class AuthService:
 
     async def authenticate(
         self,
-        email: str,
+        email_or_username: str,
         password: str,
         mfa_token: Optional[str] = None
     ) -> AuthResponse:
-        """Authenticate user with email and password
+        """Authenticate user with email/username and password
 
         Args:
-            email: User email address
+            email_or_username: User email address or username
             password: Plain text password
             mfa_token: Optional MFA token if MFA is enabled
 
@@ -133,8 +133,11 @@ class AuthService:
             AuthResponse with tokens or error
         """
         try:
-            # Find user by email
-            user = self.db(self.db.auth_user.email == email).select().first()
+            # Find user by email or username
+            user = self.db(
+                (self.db.auth_user.email == email_or_username) |
+                (self.db.auth_user.username == email_or_username)
+            ).select().first()
             if not user:
                 return AuthResponse(
                     success=False,
