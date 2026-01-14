@@ -376,6 +376,80 @@ async def verify_mfa(user_id: int):
         return jsonify({'error': f'MFA verification error: {str(e)}'}), 500
 
 
+@auth_bp.route('/status', methods=['GET'])
+async def auth_status():
+    """Check authentication status of current user
+
+    Returns authenticated: true with user info if valid token present,
+    otherwise returns authenticated: false.
+
+    Returns:
+        {
+            "authenticated": true/false,
+            "auth_enabled": true,
+            "user": {
+                "id": 1,
+                "username": "user",
+                "email": "user@example.com",
+                "role": "user"
+            }
+        }
+    """
+    try:
+        token = _get_bearer_token(request.headers)
+        if not token:
+            return jsonify({
+                'authenticated': False,
+                'auth_enabled': True
+            }), 200
+
+        try:
+            payload = jwt.decode(
+                token,
+                current_app.config['JWT_SECRET'],
+                algorithms=['HS256']
+            )
+            if payload.get('token_type') != 'access':
+                return jsonify({
+                    'authenticated': False,
+                    'auth_enabled': True
+                }), 200
+
+            user_id = payload.get('user_id')
+            auth_service = _get_auth_service()
+            user = await auth_service.get_user_by_id(user_id)
+
+            if not user:
+                return jsonify({
+                    'authenticated': False,
+                    'auth_enabled': True
+                }), 200
+
+            return jsonify({
+                'authenticated': True,
+                'auth_enabled': True,
+                'user': {
+                    'id': user.id,
+                    'username': user.username,
+                    'email': user.email,
+                    'role': user.role
+                }
+            }), 200
+
+        except (jwt.ExpiredSignatureError, jwt.InvalidTokenError, jwt.DecodeError):
+            return jsonify({
+                'authenticated': False,
+                'auth_enabled': True
+            }), 200
+
+    except Exception as e:
+        return jsonify({
+            'authenticated': False,
+            'auth_enabled': True,
+            'error': str(e)
+        }), 200
+
+
 @auth_bp.route('/mfa/disable', methods=['POST'])
 @_verify_token
 async def disable_mfa(user_id: int):

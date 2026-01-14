@@ -24,6 +24,15 @@ class AuthResponse:
     success: bool = True
 
 
+@dataclass
+class UserInfo:
+    """User information object"""
+    id: int
+    username: str
+    email: str
+    role: str
+
+
 class AuthService:
     """Service class for authentication operations"""
 
@@ -540,3 +549,26 @@ class AuthService:
                 success=False,
                 error=f"MFA disable error: {str(e)}"
             )
+
+    async def get_user_by_id(self, user_id: int) -> Optional[UserInfo]:
+        """Get user information by ID
+
+        Args:
+            user_id: User ID
+
+        Returns:
+            UserInfo object or None if not found
+        """
+        try:
+            user = self.db(self.db.auth_user.id == user_id).select().first()
+            if not user:
+                return None
+
+            return UserInfo(
+                id=user.id,
+                username=user.username,
+                email=user.email,
+                role=user.role or 'user'
+            )
+        except Exception:
+            return None
