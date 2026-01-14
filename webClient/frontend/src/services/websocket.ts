@@ -1,6 +1,6 @@
 import { io, Socket } from 'socket.io-client'
 
-const WS_URL = import.meta.env.VITE_API_URL || window.location.origin
+const WS_URL = import.meta.env.VITE_API_URL || 'http://localhost:5000'
 
 export interface TestProgressData {
   progress: number
@@ -39,9 +39,13 @@ export class WebSocketService {
     return new Promise((resolve, reject) => {
       console.log('[WebSocket] Connecting to:', WS_URL)
 
+      const accessToken = localStorage.getItem('access_token')
       this.socket = io(WS_URL, {
         transports: ['websocket', 'polling'],
         withCredentials: true,
+        auth: {
+          token: accessToken || undefined
+        }
       })
 
       this.socket.on('connect', () => {
@@ -123,8 +127,8 @@ export class WebSocketService {
     timeout?: number
     count?: number
     protocol_detail?: string
-    session_id?: string
-    api_key?: string
+    device_serial?: string
+    device_hostname?: string
   }): void {
     if (this.socket && this.isConnected) {
       console.log('[WebSocket] Starting test:', testData.test_type, 'to', testData.target)

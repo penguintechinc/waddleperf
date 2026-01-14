@@ -29,9 +29,9 @@ class ApiService {
 
     this.client.interceptors.request.use(
       (config) => {
-        const token = localStorage.getItem('auth_token');
-        if (token) {
-          config.headers.Authorization = `Bearer ${token}`;
+        const accessToken = localStorage.getItem('access_token');
+        if (accessToken) {
+          config.headers.Authorization = `Bearer ${accessToken}`;
         }
         return config;
       },
@@ -40,12 +40,36 @@ class ApiService {
 
     this.client.interceptors.response.use(
       (response) => response,
-      (error: AxiosError<ApiError>) => {
+      async (error: AxiosError<ApiError>) => {
         if (error.response?.status === 401) {
-          localStorage.removeItem('auth_token');
-          localStorage.removeItem('user');
-          if (!window.location.pathname.includes('/login')) {
-            window.location.href = '/login';
+          const refreshToken = localStorage.getItem('refresh_token');
+          if (refreshToken) {
+            try {
+              const response = await axios.post(`${API_BASE_URL}/api/v1/auth/refresh`, {
+                refresh_token: refreshToken
+              });
+              const newAccessToken = response.data.access_token;
+              localStorage.setItem('access_token', newAccessToken);
+
+              if (error.config) {
+                error.config.headers.Authorization = `Bearer ${newAccessToken}`;
+                return this.client(error.config);
+              }
+            } catch (refreshError) {
+              localStorage.removeItem('access_token');
+              localStorage.removeItem('refresh_token');
+              localStorage.removeItem('user');
+              if (!window.location.pathname.includes('/login')) {
+                window.location.href = '/login';
+              }
+            }
+          } else {
+            localStorage.removeItem('access_token');
+            localStorage.removeItem('refresh_token');
+            localStorage.removeItem('user');
+            if (!window.location.pathname.includes('/login')) {
+              window.location.href = '/login';
+            }
           }
         }
         return Promise.reject(error);
@@ -60,7 +84,8 @@ class ApiService {
 
   async logout(): Promise<void> {
     await this.client.post('/api/v1/auth/logout');
-    localStorage.removeItem('auth_token');
+    localStorage.removeItem('access_token');
+    localStorage.removeItem('refresh_token');
     localStorage.removeItem('user');
   }
 
@@ -70,7 +95,22 @@ class ApiService {
   }
 
   async verifyMfa(code: string): Promise<{ message: string }> {
-    const response = await this.client.post('/api/v1/auth/mfa/verify', { code });
+    const response = await this.client.post('/api/v1/auth/mfa/verify', { mfa_token: code });
+    return response.data;
+  }
+
+  async forgotPassword(email: string): Promise<{ success: boolean; message: string }> {
+    const response = await this.client.post('/api/v1/auth/forgot-password', { email });
+    return response.data;
+  }
+
+  async resetPassword(token: string, newPassword: string): Promise<{ success: boolean; message: string }> {
+    const response = await this.client.post('/api/v1/auth/reset-password', { token, new_password: newPassword });
+    return response.data;
+  }
+
+  async changePassword(currentPassword: string, newPassword: string): Promise<{ success: boolean; message: string }> {
+    const response = await this.client.post('/api/v1/auth/change-password', { current_password: currentPassword, new_password: newPassword });
     return response.data;
   }
 
