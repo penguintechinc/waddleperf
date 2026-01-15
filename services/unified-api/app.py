@@ -10,6 +10,7 @@ from config import Config
 from database.schema import initialize_schema
 from database.connection import get_dal, close_dal
 from routes import auth_bp, organizations_bp, devices_bp
+from services.auth_service import AuthService
 
 logger = logging.getLogger(__name__)
 
@@ -54,6 +55,9 @@ def create_app(config_obj: Optional[Config] = None) -> Quart:
     db = get_dal(config_obj)
     app.db = db
     app.config_obj = config_obj
+
+    # Initialize services
+    app.auth_service = AuthService(db, config_obj)
 
     # Store database instance for later access
     @app.before_serving

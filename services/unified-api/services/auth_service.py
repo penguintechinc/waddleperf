@@ -135,8 +135,8 @@ class AuthService:
         try:
             # Find user by email or username
             user = self.db(
-                (self.db.auth_user.email == email_or_username) |
-                (self.db.auth_user.username == email_or_username)
+                (self.db.users.email == email_or_username) |
+                (self.db.users.username == email_or_username)
             ).select().first()
             if not user:
                 return AuthResponse(
@@ -180,7 +180,7 @@ class AuthService:
             refresh_token = self._generate_jwt(user.id, 'refresh')
 
             # Store refresh token in database
-            self.db.auth_refresh_token.insert(
+            self.db.refresh_tokens.insert(
                 user_id=user.id,
                 token=refresh_token,
                 expires_at=datetime.now(timezone.utc) + timedelta(days=30),
@@ -219,8 +219,8 @@ class AuthService:
 
             # Check if token is revoked
             token_record = self.db(
-                (self.db.auth_refresh_token.token == refresh_token) &
-                (self.db.auth_refresh_token.is_revoked == False)
+                (self.db.refresh_tokens.token == refresh_token) &
+                (self.db.refresh_tokens.is_revoked == False)
             ).select().first()
 
             if not token_record:
@@ -261,7 +261,7 @@ class AuthService:
         """
         try:
             # Mark all refresh tokens as revoked
-            self.db(self.db.auth_refresh_token.user_id == user_id).update(
+            self.db(self.db.refresh_tokens.user_id == user_id).update(
                 is_revoked=True
             )
             self.db.commit()
@@ -282,7 +282,7 @@ class AuthService:
             AuthResponse indicating success or error
         """
         try:
-            user = self.db(self.db.auth_user.email == email).select().first()
+            user = self.db(self.db.users.email == email).select().first()
             if not user:
                 # Don't reveal if email exists
                 return AuthResponse(success=True)
@@ -291,7 +291,7 @@ class AuthService:
             reset_token = self._generate_jwt(user.id, 'reset')
 
             # Store reset token
-            self.db.auth_password_reset_token.insert(
+            self.db.password_reset_tokens.insert(
                 user_id=user.id,
                 token=reset_token,
                 expires_at=datetime.now(timezone.utc) + timedelta(hours=1),
@@ -329,8 +329,8 @@ class AuthService:
 
             # Check if token exists and hasn't been used
             token_record = self.db(
-                (self.db.auth_password_reset_token.token == token) &
-                (self.db.auth_password_reset_token.is_used == False)
+                (self.db.password_reset_tokens.token == token) &
+                (self.db.password_reset_tokens.is_used == False)
             ).select().first()
 
             if not token_record:
@@ -349,12 +349,12 @@ class AuthService:
             # Update password
             user_id = payload.get('user_id')
             password_hash = self._hash_password(new_password)
-            self.db(self.db.auth_user.id == user_id).update(
+            self.db(self.db.users.id == user_id).update(
                 password_hash=password_hash
             )
 
             # Mark token as used
-            self.db(self.db.auth_password_reset_token.id == token_record.id).update(
+            self.db(self.db.password_reset_tokens.id == token_record.id).update(
                 is_used=True
             )
 
@@ -386,7 +386,7 @@ class AuthService:
             AuthResponse indicating success or error
         """
         try:
-            user = self.db(self.db.auth_user.id == user_id).select().first()
+            user = self.db(self.db.users.id == user_id).select().first()
             if not user:
                 return AuthResponse(
                     success=False,
@@ -402,7 +402,7 @@ class AuthService:
 
             # Hash new password
             password_hash = self._hash_password(new_password)
-            self.db(self.db.auth_user.id == user_id).update(
+            self.db(self.db.users.id == user_id).update(
                 password_hash=password_hash
             )
 
@@ -427,7 +427,7 @@ class AuthService:
             AuthResponse with MFA secret and QR code
         """
         try:
-            user = self.db(self.db.auth_user.id == user_id).select().first()
+            user = self.db(self.db.users.id == user_id).select().first()
             if not user:
                 return AuthResponse(
                     success=False,
@@ -481,7 +481,7 @@ class AuthService:
             AuthResponse indicating success or error
         """
         try:
-            user = self.db(self.db.auth_user.id == user_id).select().first()
+            user = self.db(self.db.users.id == user_id).select().first()
             if not user:
                 return AuthResponse(
                     success=False,
@@ -497,7 +497,7 @@ class AuthService:
                 )
 
             # Enable MFA
-            self.db(self.db.auth_user.id == user_id).update(
+            self.db(self.db.users.id == user_id).update(
                 mfa_enabled=True,
                 mfa_secret=mfa_secret
             )
@@ -525,7 +525,7 @@ class AuthService:
             AuthResponse indicating success or error
         """
         try:
-            user = self.db(self.db.auth_user.id == user_id).select().first()
+            user = self.db(self.db.users.id == user_id).select().first()
             if not user:
                 return AuthResponse(
                     success=False,
@@ -540,7 +540,7 @@ class AuthService:
                 )
 
             # Disable MFA
-            self.db(self.db.auth_user.id == user_id).update(
+            self.db(self.db.users.id == user_id).update(
                 mfa_enabled=False,
                 mfa_secret=None
             )
@@ -563,7 +563,7 @@ class AuthService:
             UserInfo object or None if not found
         """
         try:
-            user = self.db(self.db.auth_user.id == user_id).select().first()
+            user = self.db(self.db.users.id == user_id).select().first()
             if not user:
                 return None
 

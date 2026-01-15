@@ -52,9 +52,31 @@ def initialize_schema(config):
         Column('last_name', String(100)),
         Column('is_active', Boolean, default=True),
         Column('role', String(50), default='viewer'),  # admin, maintainer, viewer
+        Column('mfa_enabled', Boolean, default=False),
+        Column('mfa_secret', String(255)),
         Column('last_login', DateTime(timezone=True)),
         Column('created_at', DateTime(timezone=True), server_default=func.now()),
         Column('updated_at', DateTime(timezone=True), server_default=func.now(), onupdate=func.now()),
+    )
+
+    # Refresh tokens table
+    refresh_tokens = Table('refresh_tokens', metadata,
+        Column('id', Integer, primary_key=True, autoincrement=True),
+        Column('user_id', Integer, ForeignKey('users.id', ondelete='CASCADE'), nullable=False),
+        Column('token', String(500), unique=True, nullable=False),
+        Column('expires_at', DateTime(timezone=True), nullable=False),
+        Column('is_revoked', Boolean, default=False),
+        Column('created_at', DateTime(timezone=True), server_default=func.now()),
+    )
+
+    # Password reset tokens table
+    password_reset_tokens = Table('password_reset_tokens', metadata,
+        Column('id', Integer, primary_key=True, autoincrement=True),
+        Column('user_id', Integer, ForeignKey('users.id', ondelete='CASCADE'), nullable=False),
+        Column('token', String(500), unique=True, nullable=False),
+        Column('expires_at', DateTime(timezone=True), nullable=False),
+        Column('is_used', Boolean, default=False),
+        Column('created_at', DateTime(timezone=True), server_default=func.now()),
     )
 
     # API Keys table for service-to-service auth

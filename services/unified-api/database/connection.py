@@ -67,10 +67,36 @@ def _define_models(dal: DAL) -> None:
         Field('last_name', 'string'),
         Field('is_active', 'boolean', default=True),
         Field('role', 'string', default='viewer'),
+        Field('mfa_enabled', 'boolean', default=False),
+        Field('mfa_secret', 'string'),
         Field('last_login', 'datetime'),
         Field('created_at', 'datetime'),
         Field('updated_at', 'datetime'),
         migrate=False  # Don't migrate, table already exists
+    )
+
+    # Refresh tokens table
+    dal.define_table(
+        'refresh_tokens',
+        Field('id', 'id'),
+        Field('user_id', 'reference users'),
+        Field('token', 'string'),
+        Field('expires_at', 'datetime'),
+        Field('is_revoked', 'boolean', default=False),
+        Field('created_at', 'datetime'),
+        migrate=False
+    )
+
+    # Password reset tokens table
+    dal.define_table(
+        'password_reset_tokens',
+        Field('id', 'id'),
+        Field('user_id', 'reference users'),
+        Field('token', 'string'),
+        Field('expires_at', 'datetime'),
+        Field('is_used', 'boolean', default=False),
+        Field('created_at', 'datetime'),
+        migrate=False
     )
 
     # API Keys table
