@@ -1,0 +1,192 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: testserver
+  namespace: waddleperf
+  labels:
+    app: testserver
+    version: v1
+spec:
+  replicas: 3
+  selector:
+    matchLabels:
+      app: testserver
+  template:
+    metadata:
+      labels:
+        app: testserver
+        version: v1
+    spec:
+      containers:
+      - name: testserver
+        image: registry-dal2.penguintech.io/waddleperf/testserver:latest
+        imagePullPolicy: Always
+        ports:
+        - name: http
+          containerPort: 5001
+          protocol: TCP
+        - name: grpc
+          containerPort: 50052
+          protocol: TCP
+        env:
+        - name: DATABASE_URL
+          valueFrom:
+            secretKeyRef:
+              name: waddleperf-db-credentials
+              key: database-url
+        - name: DB_TYPE
+          valueFrom:
+            secretKeyRef:
+              name: waddleperf-db-credentials
+              key: db-type
+        - name: DB_HOST
+          valueFrom:
+            secretKeyRef:
+              name: waddleperf-db-credentials
+              key: db-host
+        - name: DB_PORT
+          valueFrom:
+            secretKeyRef:
+              name: waddleperf-db-credentials
+              key: db-port
+        - name: DB_USER
+          valueFrom:
+            secretKeyRef:
+              name: waddleperf-db-credentials
+              key: db-user
+        - name: DB_PASSWORD
+          valueFrom:
+            secretKeyRef:
+              name: waddleperf-db-credentials
+              key: db-password
+        - name: DB_NAME
+          valueFrom:
+            secretKeyRef:
+              name: waddleperf-db-credentials
+              key: db-name
+        - name: JWT_SECRET
+          valueFrom:
+            secretKeyRef:
+              name: waddleperf-app-secrets
+              key: jwt-secret
+        - name: JWT_ALGORITHM
+          value: "HS256"
+        - name: FLASK_ENV
+          value: "production"
+        - name: LOG_LEVEL
+          value: "INFO"
+        resources:
+          requests:
+            cpu: 500m
+            memory: 512Mi
+          limits:
+            cpu: 2000m
+            memory: 2Gi
+        livenessProbe:
+          httpGet:
+            path: /api/v1/health
+            port: http
+          initialDelaySeconds: 30
+          periodSeconds: 10
+          timeoutSeconds: 5
+          failureThreshold: 3
+        readinessProbe:
+          httpGet:
+            path: /api/v1/ready
+            port: http
+          initialDelaySeconds: 10
+          periodSeconds: 5
+          timeoutSeconds: 3
+          failureThreshold: 2
+        volumeMounts:
+        - name: config
+          mountPath: /etc/waddleperf
+          readOnly: true
+      volumes:
+      - name: config
+        configMap:
+          name: testserver-config
+          optional: true
+      serviceAccountName: testserver
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: testserver
+  namespace: waddleperf
+  labels:
+    app: testserver
+spec:
+  type: ClusterIP
+  selector:
+    app: testserver
+  ports:
+  - name: http
+    port: 5001
+    targetPort: http
+    protocol: TCP
+  - name: grpc
+    port: 50052
+    targetPort: grpc
+    protocol: TCP
+---
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: testserver
+  namespace: waddleperf
+  labels:
+    app: testserver
+  annotations:
+    cert-manager.io/cluster-issuer: letsencrypt-prod
+    nginx.ingress.kubernetes.io/ssl-redirect: "true"
+    nginx.ingress.kubernetes.io/force-ssl-redirect: "true"
+spec:
+  ingressClassName: nginx
+  tls:
+  - hosts:
+    - testserver.waddleperf.penguintech.io
+    secretName: testserver-tls-cert
+  rules:
+  - host: testserver.waddleperf.penguintech.io
+    http:
+      paths:
+      - path: /
+        pathType: Prefix
+        backend:
+          service:
+            name: testserver
+            port:
+              name: http
+---
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: testserver
+  namespace: waddleperf
+  labels:
+    app: testserver
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: testserver-config
+  namespace: waddleperf
+  labels:
+    app: testserver
+data:
+  logging.yaml: |
+    version: 1
+    disable_existing_loggers: false
+    formatters:
+      default:
+        format: '%(asctime)s - %(name)s - %(levelname)s - %(message)s'
+    handlers:
+      console:
+        class: logging.StreamHandler
+        formatter: default
+        stream: ext://sys.stdout
+    root:
+      level: INFO
+      handlers:
+        - console

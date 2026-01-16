@@ -18,8 +18,11 @@ type Config struct {
 }
 
 type ManagerConfig struct {
-	URL    string `yaml:"url"`
-	APIKey string `yaml:"api_key"`
+	URL               string `yaml:"url"`
+	APIKey            string `yaml:"api_key"`
+	AccessTokenPath   string `yaml:"access_token_path"`
+	RefreshTokenPath  string `yaml:"refresh_token_path"`
+	OrganizationID    string `yaml:"organization_id"`
 }
 
 type TestServerConfig struct {
@@ -162,6 +165,23 @@ func (c *Config) Validate() error {
 }
 
 func (c *Config) SetDefaults() {
+	// Manager defaults
+	if c.Manager.URL == "" {
+		c.Manager.URL = "https://waddleperf.penguintech.io"
+	}
+	if c.Manager.AccessTokenPath == "" {
+		home, err := os.UserHomeDir()
+		if err == nil {
+			c.Manager.AccessTokenPath = filepath.Join(home, ".waddleperf", "access_token")
+		}
+	}
+	if c.Manager.RefreshTokenPath == "" {
+		home, err := os.UserHomeDir()
+		if err == nil {
+			c.Manager.RefreshTokenPath = filepath.Join(home, ".waddleperf", "refresh_token")
+		}
+	}
+
 	// HTTP defaults
 	if c.Tests.HTTP.Enabled {
 		if c.Tests.HTTP.Protocol == "" {

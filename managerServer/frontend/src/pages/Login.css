@@ -15,6 +15,19 @@
   max-width: 400px;
 }
 
+.login-logo {
+  display: block;
+  margin: 0 auto 1.5rem;
+  height: 300px;
+  width: auto;
+}
+
+@media (max-width: 768px) {
+  .login-logo {
+    height: 200px;
+  }
+}
+
 .login-card h1 {
   text-align: center;
   color: var(--primary-color);

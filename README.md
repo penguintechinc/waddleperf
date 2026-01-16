@@ -162,7 +162,11 @@ docker-compose ps
 
 **Default Credentials:**
 - Username: `admin`
+<<<<<<< HEAD
+- Password: `ChangeMeAlready`
+=======
 - Password: `admin123`
+>>>>>>> main
 - **⚠️ Change immediately in production!**
 
 ## Documentation
@@ -209,6 +213,8 @@ Check [releases page](https://github.com/penguintechinc/WaddlePerf/releases) for
 
 ## License
 
+<<<<<<< HEAD
+=======
 **License Highlights:**
 - **Personal & Internal Use**: Free under AGPL-3.0
 - **Commercial Use**: Requires commercial license
@@ -225,6 +231,7 @@ Companies employing official contributors receive GPL-2.0 access to community fe
 
 This exception rewards contributors by providing lasting fair use rights to their employers.
 
+>>>>>>> main
 See [docs/LICENSE.md](docs/LICENSE.md) for full license terms.
 
 ## Contributors

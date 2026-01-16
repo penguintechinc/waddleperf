@@ -1,0 +1,15 @@
+quart==0.19.4
+quart-cors==0.7.0
+Flask-Security-Too==5.3.3
+pydal==20260110.1
+SQLAlchemy==2.0.36
+PyMySQL==1.1.0
+PyJWT==2.8.0
+bcrypt==4.1.2
+pyotp==2.9.0
+aiohttp==3.9.1
+gunicorn==21.2.0
+hypercorn==0.16.0
+python-dotenv==1.0.0
+qrcode==8.0
+werkzeug==3.0.1

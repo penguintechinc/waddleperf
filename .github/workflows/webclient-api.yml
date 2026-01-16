@@ -6,20 +6,14 @@ on:
     tags: ['v*']
     paths:
       - 'webClient/api/**'
-      - '.version'
       - 'webClient/Dockerfile.api'
-      - '.version'
       - '.github/workflows/webclient-api.yml'
-      - '.version'
   pull_request:
     branches: [main, 4.x]
     paths:
       - 'webClient/api/**'
-      - '.version'
       - 'webClient/Dockerfile.api'
-      - '.version'
       - '.github/workflows/webclient-api.yml'
-      - '.version'
   workflow_dispatch:
 
 env:

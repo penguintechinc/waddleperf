@@ -1,5 +1,7 @@
 import axios, { AxiosError } from 'axios'
 
+// In production, API is served from same origin via ingress routing
+// In development, override with VITE_API_URL=http://localhost:5000
 const API_BASE_URL = import.meta.env.VITE_API_URL || ''
 
 const api = axios.create({
@@ -10,9 +12,13 @@ const api = axios.create({
   },
 })
 
-// Request interceptor for logging
+// Request interceptor for auth and logging
 api.interceptors.request.use(
   (config) => {
+    const accessToken = localStorage.getItem('access_token')
+    if (accessToken) {
+      config.headers.Authorization = `Bearer ${accessToken}`
+    }
     console.log(`[API] ${config.method?.toUpperCase()} ${config.url}`)
     return config
   },
@@ -22,14 +28,38 @@ api.interceptors.request.use(
   }
 )
 
-// Response interceptor for logging
+// Response interceptor for token refresh and logging
 api.interceptors.response.use(
   (response) => {
     console.log(`[API] Response ${response.status} from ${response.config.url}`)
     return response
   },
-  (error: AxiosError) => {
+  async (error: AxiosError) => {
     console.error('[API] Response error:', error.response?.status, error.message)
+
+    if (error.response?.status === 401) {
+      const refreshToken = localStorage.getItem('refresh_token')
+      if (refreshToken && error.config) {
+        try {
+          const response = await axios.post(`${API_BASE_URL}/api/v1/auth/refresh`, {
+            refresh_token: refreshToken
+          })
+          const newAccessToken = response.data.access_token
+          localStorage.setItem('access_token', newAccessToken)
+          error.config.headers.Authorization = `Bearer ${newAccessToken}`
+          return api(error.config)
+        } catch (refreshError) {
+          localStorage.removeItem('access_token')
+          localStorage.removeItem('refresh_token')
+          window.location.href = '/login'
+        }
+      } else {
+        localStorage.removeItem('access_token')
+        localStorage.removeItem('refresh_token')
+        window.location.href = '/login'
+      }
+    }
+
     return Promise.reject(error)
   }
 )
@@ -48,6 +78,8 @@ export interface LoginResponse {
     role: string
   }
   session_id: string
+  access_token: string
+  refresh_token: string
 }
 
 export interface AuthStatusResponse {
@@ -86,22 +118,29 @@ export interface TestResult {
 }
 
 export const login = async (credentials: LoginRequest): Promise<LoginResponse> => {
-  const response = await api.post<LoginResponse>('/api/auth/login', credentials)
+  const response = await api.post<LoginResponse>('/api/v1/auth/login', credentials)
+  if (response.data.access_token) {
+    localStorage.setItem('access_token', response.data.access_token)
+  }
+  if (response.data.refresh_token) {
+    localStorage.setItem('refresh_token', response.data.refresh_token)
+  }
   return response.data
 }
 
 export const logout = async (): Promise<void> => {
-  await api.post('/api/auth/logout')
+  await api.post('/api/v1/auth/logout')
+  localStorage.removeItem('access_token')
+  localStorage.removeItem('refresh_token')
 }
 
 export const checkAuthStatus = async (): Promise<AuthStatusResponse> => {
-  const response = await api.get<AuthStatusResponse>('/api/auth/status')
+  const response = await api.get<AuthStatusResponse>('/api/v1/auth/status')
   return response.data
 }
 
 export const runTest = async (testRequest: TestRequest): Promise<TestResult> => {
-  const { test_type, ...params } = testRequest
-  const response = await api.post<TestResult>(`/api/test/${test_type}`, params)
+  const response = await api.post<TestResult>('/api/v1/tests/', testRequest)
   return response.data
 }
 

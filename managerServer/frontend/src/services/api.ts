@@ -29,9 +29,9 @@ class ApiService {
 
     this.client.interceptors.request.use(
       (config) => {
-        const token = localStorage.getItem('auth_token');
-        if (token) {
-          config.headers.Authorization = `Bearer ${token}`;
+        const accessToken = localStorage.getItem('access_token');
+        if (accessToken) {
+          config.headers.Authorization = `Bearer ${accessToken}`;
         }
         return config;
       },
@@ -40,12 +40,36 @@ class ApiService {
 
     this.client.interceptors.response.use(
       (response) => response,
-      (error: AxiosError<ApiError>) => {
+      async (error: AxiosError<ApiError>) => {
         if (error.response?.status === 401) {
-          localStorage.removeItem('auth_token');
-          localStorage.removeItem('user');
-          if (!window.location.pathname.includes('/login')) {
-            window.location.href = '/login';
+          const refreshToken = localStorage.getItem('refresh_token');
+          if (refreshToken) {
+            try {
+              const response = await axios.post(`${API_BASE_URL}/api/v1/auth/refresh`, {
+                refresh_token: refreshToken
+              });
+              const newAccessToken = response.data.access_token;
+              localStorage.setItem('access_token', newAccessToken);
+
+              if (error.config) {
+                error.config.headers.Authorization = `Bearer ${newAccessToken}`;
+                return this.client(error.config);
+              }
+            } catch (refreshError) {
+              localStorage.removeItem('access_token');
+              localStorage.removeItem('refresh_token');
+              localStorage.removeItem('user');
+              if (!window.location.pathname.includes('/login')) {
+                window.location.href = '/login';
+              }
+            }
+          } else {
+            localStorage.removeItem('access_token');
+            localStorage.removeItem('refresh_token');
+            localStorage.removeItem('user');
+            if (!window.location.pathname.includes('/login')) {
+              window.location.href = '/login';
+            }
           }
         }
         return Promise.reject(error);
@@ -60,7 +84,8 @@ class ApiService {
 
   async logout(): Promise<void> {
     await this.client.post('/api/v1/auth/logout');
-    localStorage.removeItem('auth_token');
+    localStorage.removeItem('access_token');
+    localStorage.removeItem('refresh_token');
     localStorage.removeItem('user');
   }
 
@@ -70,7 +95,22 @@ class ApiService {
   }
 
   async verifyMfa(code: string): Promise<{ message: string }> {
-    const response = await this.client.post('/api/v1/auth/mfa/verify', { code });
+    const response = await this.client.post('/api/v1/auth/mfa/verify', { mfa_token: code });
+    return response.data;
+  }
+
+  async forgotPassword(email: string): Promise<{ success: boolean; message: string }> {
+    const response = await this.client.post('/api/v1/auth/forgot-password', { email });
+    return response.data;
+  }
+
+  async resetPassword(token: string, newPassword: string): Promise<{ success: boolean; message: string }> {
+    const response = await this.client.post('/api/v1/auth/reset-password', { token, new_password: newPassword });
+    return response.data;
+  }
+
+  async changePassword(currentPassword: string, newPassword: string): Promise<{ success: boolean; message: string }> {
+    const response = await this.client.post('/api/v1/auth/change-password', { current_password: currentPassword, new_password: newPassword });
     return response.data;
   }
 
@@ -96,7 +136,7 @@ class ApiService {
     return response.data;
   }
 
-  async changePassword(userId: number, data: ChangePasswordRequest): Promise<{ message: string }> {
+  async changeUserPassword(userId: number, data: ChangePasswordRequest): Promise<{ message: string }> {
     const response = await this.client.put(`/api/v1/users/${userId}/password`, data);
     return response.data;
   }
@@ -107,29 +147,31 @@ class ApiService {
   }
 
   async listOrganizations(): Promise<{ organizations: OrganizationUnit[] }> {
-    const response = await this.client.get('/api/v1/organizations');
+    const response = await this.client.get('/api/v1/orgs');
     return response.data;
   }
 
   async getOrganization(orgId: number): Promise<OrganizationUnit> {
-    const response = await this.client.get<OrganizationUnit>(`/api/v1/organizations/${orgId}`);
+    const response = await this.client.get<OrganizationUnit>(`/api/v1/orgs/${orgId}`);
     return response.data;
   }
 
   async createOrganization(orgData: CreateOrganizationRequest): Promise<OrganizationUnit> {
-    const response = await this.client.post<OrganizationUnit>('/api/v1/organizations', orgData);
+    const response = await this.client.post<OrganizationUnit>('/api/v1/orgs', orgData);
     return response.data;
   }
 
   async getRecentTests(limit = 100): Promise<{ results: TestResult[] }> {
-    const response = await this.client.get('/api/v1/statistics/recent', {
+    const response = await this.client.get('/api/v1/stats/recent', {
       params: { limit }
     });
     return response.data;
   }
 
-  async getDeviceStats(deviceSerial: string): Promise<{ device: string; statistics: any[] }> {
-    const response = await this.client.get(`/api/v1/statistics/device/${deviceSerial}`);
+  async getDeviceStats(deviceId: string): Promise<{ device: string; statistics: any[] }> {
+    const response = await this.client.get('/api/v1/stats/by-device', {
+      params: { device_id: deviceId }
+    });
     return response.data;
   }
 

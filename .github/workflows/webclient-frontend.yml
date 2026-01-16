@@ -6,20 +6,14 @@ on:
     tags: ['v*']
     paths:
       - 'webClient/frontend/**'
-      - '.version'
       - 'webClient/Dockerfile.frontend'
-      - '.version'
       - '.github/workflows/webclient-frontend.yml'
-      - '.version'
   pull_request:
     branches: [main, 4.x]
     paths:
       - 'webClient/frontend/**'
-      - '.version'
       - 'webClient/Dockerfile.frontend'
-      - '.version'
       - '.github/workflows/webclient-frontend.yml'
-      - '.version'
   workflow_dispatch:
 
 env:
@@ -124,7 +118,7 @@ jobs:
     name: Build Summary
     runs-on: ubuntu-latest
     needs: [test, build]
-    if: always()
+    if: always() && (needs.build.result == 'success' || needs.build.result == 'skipped')
 
     steps:
       - name: Check build status

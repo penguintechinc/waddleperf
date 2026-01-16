@@ -10,8 +10,8 @@ services:
       MYSQL_DATABASE: ${DB_NAME:-waddleperf}
       MYSQL_USER: ${DB_USER:-waddleperf}
       MYSQL_PASSWORD: ${DB_PASS:-dev_password}
-    expose:
-      - "3306"
+    ports:
+      - "3306:3306"
     volumes:
       - mariadb_data:/var/lib/mysql
       - ./database/schema.sql:/docker-entrypoint-initdb.d/01-schema.sql:ro
@@ -36,7 +36,7 @@ services:
       - NET_ADMIN
     environment:
       MANAGER_KEY: ${MANAGER_KEY:-0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef}
-      MANAGER_URL: grpc://managementserver-api:50051
+      MANAGER_URL: grpc://unified-api:50051
       DB_HOST: mariadb
       DB_PORT: 3306
       DB_USER: ${DB_USER:-waddleperf}
@@ -61,16 +61,17 @@ services:
       - waddleperf-network
     restart: unless-stopped
 
-  # managerServer API (Flask) - Management backend
-  managerserver-api:
+  # Unified API (Flask/Quart) - Combined management and web client backend
+  unified-api:
     build:
-      context: ./managerServer/api
-      dockerfile: Dockerfile.api
-    container_name: waddleperf-manager-api
+      context: ./services/unified-api
+      dockerfile: Dockerfile
+    container_name: waddleperf-unified-api
     environment:
       MANAGER_KEY: ${MANAGER_KEY:-0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef}
       SECRET_KEY: ${SECRET_KEY:-dev-secret-key-change-in-production}
       JWT_SECRET: ${JWT_SECRET:-dev-jwt-secret-change-in-production}
+      DB_TYPE: ${DB_TYPE:-mysql}
       DB_HOST: mariadb
       DB_PORT: 3306
       DB_USER: ${DB_USER:-waddleperf}
@@ -84,8 +85,6 @@ services:
     ports:
       - "5000:5000"
       - "50051:50051"  # gRPC port
-    volumes:
-      - ./managerServer/api:/app:ro
     depends_on:
       mariadb:
         condition: service_healthy
@@ -114,7 +113,7 @@ services:
       - ./managerServer/frontend/src:/app/src:ro
       - ./managerServer/frontend/public:/app/public:ro
     depends_on:
-      - managerserver-api
+      - unified-api
     healthcheck:
       test: ["CMD", "wget", "--no-verbose", "--tries=1", "--spider", "http://localhost"]
       interval: 30s
@@ -125,42 +124,6 @@ services:
       - waddleperf-network
     restart: unless-stopped
 
-  # webClient API (Flask) - Browser-based test client backend
-  webclient-api:
-    build:
-      context: ./webClient
-      dockerfile: Dockerfile.api
-    container_name: waddleperf-webclient-api
-    environment:
-      MANAGER_URL: http://managerserver-api:5000
-      TESTSERVER_URL: http://testserver:8080
-      AUTH_ENABLED: ${AUTH_ENABLED:-true}
-      FLASK_ENV: development
-      FLASK_DEBUG: 1
-      PORT: 5001
-      FRONTEND_URL: http://localhost:3001
-      DB_HOST: mariadb
-      DB_PORT: 3306
-      DB_USER: ${DB_USER:-waddleperf}
-      DB_PASS: ${DB_PASS:-dev_password}
-      DB_NAME: ${DB_NAME:-waddleperf}
-    ports:
-      - "5001:5001"
-    volumes:
-      - ./webClient/api:/app:ro
-    depends_on:
-      - mariadb
-      - testserver
-      - managerserver-api
-    healthcheck:
-      test: ["CMD", "curl", "-f", "http://localhost:5001/health"]
-      interval: 30s
-      timeout: 3s
-      retries: 3
-      start_period: 10s
-    networks:
-      - waddleperf-network
-    restart: unless-stopped
 
   # webClient Frontend (React) - Browser-based test client UI
   webclient-frontend:
@@ -169,8 +132,8 @@ services:
       dockerfile: Dockerfile.frontend
     container_name: waddleperf-webclient-frontend
     environment:
-      VITE_API_URL: http://localhost:5001
-      VITE_WS_URL: ws://localhost:5001
+      VITE_API_URL: http://localhost:5000
+      VITE_WS_URL: ws://localhost:5000
       VITE_TESTSERVER_URL: http://localhost:8080
       NODE_ENV: development
     ports:
@@ -179,7 +142,7 @@ services:
       - ./webClient/frontend/src:/app/src:ro
       - ./webClient/frontend/public:/app/public:ro
     depends_on:
-      - webclient-api
+      - unified-api
     healthcheck:
       test: ["CMD", "wget", "--no-verbose", "--tries=1", "--spider", "http://localhost"]
       interval: 30s
@@ -202,7 +165,7 @@ services:
     environment:
       AUTH_TYPE: ${AUTH_TYPE:-apikey}
       AUTH_APIKEY: ${AUTH_APIKEY:-test-api-key}
-      MANAGER_URL: http://managerserver-api:5000
+      MANAGER_URL: http://unified-api:5000
       TEST_SERVER_URL: http://testserver:8080
       RUN_SECONDS: ${RUN_SECONDS:-0}  # 0 = manual only in dev
       ENABLE_HTTP_TEST: "true"
@@ -213,7 +176,7 @@ services:
       DEVICE_HOSTNAME: containerclient-dev
     depends_on:
       - testserver
-      - managerserver-api
+      - unified-api
     networks:
       - waddleperf-network
     restart: "no"  # Manual execution in dev

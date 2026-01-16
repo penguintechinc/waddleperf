@@ -46,11 +46,17 @@
 }
 
 .login-logo {
-  width: 120px;
-  height: 120px;
+  height: 300px;
+  width: auto;
   margin: 0 auto 1.5rem;
   display: block;
   filter: drop-shadow(0 4px 6px rgba(0, 0, 0, 0.3));
+}
+
+@media (max-width: 768px) {
+  .login-logo {
+    height: 200px;
+  }
 }
 
 .login-header h1 {

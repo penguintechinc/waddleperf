@@ -36,6 +36,7 @@ const Login: React.FC = () => {
   return (
     <div className="login-container">
       <div className="login-card">
+        <img src="/waddleperf-logo.png" alt="WaddlePerf Logo" className="login-logo" />
         <h1>WaddlePerf Manager</h1>
         <h2>Sign In</h2>
         {error && <div className="error-message">{error}</div>}

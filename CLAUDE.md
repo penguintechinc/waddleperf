@@ -67,16 +67,16 @@ This is a comprehensive project template incorporating best practices and patter
   - **MariaDB Galera**: Cluster support with WSREP, auto-increment, transaction handling
   - **SQLite**: Development and lightweight deployments
 - **Database Libraries (Python)**:
-  - **SQLAlchemy**: Used ONLY for database initialization and schema creation
-  - **PyDAL**: Used for ALL runtime database operations and migrations
+  - **SQLAlchemy + Alembic**: Database schema definition and version-controlled migrations
+  - **PyDAL**: Used for ALL runtime database operations only
   - `DB_TYPE` must match PyDAL connection string prefixes exactly
 - **Database Libraries (Go)**: GORM or sqlx (mandatory for cross-database support)
   - Must support PostgreSQL, MySQL/MariaDB, and SQLite
   - Stable, well-maintained library required
-- **Migrations**: PyDAL handles all migrations via `migrate=True`
+- **Migrations**: Alembic for schema migrations, PyDAL for runtime operations
 - **MariaDB Galera Support**: Handle Galera-specific requirements (WSREP, auto-increment, transactions)
 
-📚 **Supported DB_TYPE Values**: See [Development Standards - Database Standards](docs/STANDARDS.md#database-standards) for complete list and configuration details.
+📚 **Supported DB_TYPE Values**: See [Database Standards](docs/standards/DATABASE.md) for complete list and configuration details.
 
 ### Security & Authentication
 - **Flask-Security-Too**: Mandatory for all Flask applications
@@ -149,7 +149,7 @@ project-name/
 ├── .github/             # CI/CD pipelines and templates
 │   └── workflows/       # GitHub Actions for each container
 ├── services/            # Microservices (separate containers by default)
-│   ├── flask-backend/   # Flask + PyDAL backend (auth, users, standard APIs)
+│   ├── flask-backend/   # Flask + PyDAL teams API backend (auth, teams, users, standard APIs)
 │   ├── go-backend/      # Go high-performance backend (XDP/AF_XDP, NUMA)
 │   ├── webui/           # Node.js + React frontend shell
 │   └── connector/       # Integration services (placeholder)
@@ -175,13 +175,14 @@ project-name/
 
 | Container | Purpose | When to Use |
 |-----------|---------|-------------|
-| **flask-backend** | Standard APIs, auth, CRUD | <10K req/sec, business logic |
+| **teams-api** (flask-backend) | Standard APIs, auth, teams, user management | <10K req/sec, business logic |
 | **go-backend** | High-performance networking | >10K req/sec, <10ms latency |
 | **webui** | Node.js + React frontend | All frontend applications |
 
 **Default Roles**: Admin (full access), Maintainer (read/write, no user mgmt), Viewer (read-only)
+**Team Roles**: Owner, Admin, Member, Viewer (team-scoped permissions)
 
-📚 **Architecture diagram and details**: [Development Standards - Microservices Architecture](docs/STANDARDS.md#microservices-architecture)
+📚 **Architecture diagram and details**: [Architecture Standards](docs/standards/ARCHITECTURE.md)
 
 ## Version Management System
 
@@ -450,9 +451,13 @@ make license-check-features  # Check available features
 
 ## Development Standards
 
-Comprehensive development standards are documented separately to keep this file concise.
+**⚠️ Documentation Structure:**
+- **Company-wide standards**: [docs/STANDARDS.md](docs/STANDARDS.md) (index) + [docs/standards/](docs/standards/) (detailed categories)
+- **App-specific standards**: [docs/APP_STANDARDS.md](docs/APP_STANDARDS.md) (application-specific architecture, requirements, context)
 
-📚 **Complete Standards Documentation**: [Development Standards](docs/STANDARDS.md)
+Comprehensive development standards are organized by category in `docs/standards/` directory. The main STANDARDS.md serves as an index with quick reference.
+
+📚 **Complete Standards Documentation**: [Development Standards](docs/STANDARDS.md) (index to 12 category files)
 
 ### Quick Reference
 
@@ -523,7 +528,7 @@ Comprehensive development standards are documented separately to keep this file 
 - **DO NOT include MarchProxy in default deployment** - it's external infrastructure
 - **Generate MarchProxy-compatible import configuration** in `config/marchproxy/`
 - Import config via MarchProxy's API: `POST /api/v1/services/import`
-- See [Development Standards - MarchProxy Integration](docs/STANDARDS.md#marchproxy-api-gateway-integration)
+- See [Integration Standards - MarchProxy](docs/standards/INTEGRATIONS.md)
 
 **Docker Standards**:
 - Multi-arch builds (amd64/arm64)
@@ -573,11 +578,11 @@ Comprehensive development standards are documented separately to keep this file 
 - Resilience
 - Continuous deployment
 
-📚 **Detailed Architecture Patterns**: See [Development Standards - Microservices Architecture](docs/STANDARDS.md#microservices-architecture)
+📚 **Detailed Architecture Patterns**: See [Architecture Standards](docs/standards/ARCHITECTURE.md)
 
 ## Common Integration Patterns
 
-📚 **Complete code examples and integration patterns**: [Development Standards](docs/STANDARDS.md)
+📚 **Complete code examples and integration patterns**: [Standards Index](docs/STANDARDS.md) | [Authentication](docs/standards/AUTHENTICATION.md) | [Database](docs/standards/DATABASE.md)
 
 Key integration patterns documented:
 - Flask + Flask-Security-Too + PyDAL authentication
@@ -602,13 +607,22 @@ Key integration patterns documented:
 
 **Support**: support@penguintech.io | sales@penguintech.io | https://status.penguintech.io
 
-📚 **Detailed troubleshooting**: [Development Standards](docs/STANDARDS.md) | [License Guide](docs/licensing/license-server-integration.md)
+📚 **Detailed troubleshooting**: [Standards Index](docs/STANDARDS.md) | [License Guide](docs/licensing/license-server-integration.md)
 
 ## CI/CD & Workflows
 
 **Build Tags**: `beta-<epoch64>` (main) | `alpha-<epoch64>` (other) | `vX.X.X-beta` (version release) | `vX.X.X` (tagged release)
 
 **Version**: `.version` file in root, semver format, monitored by all workflows
+
+**Deployment Hosts**:
+- **Beta/Development**: `https://{repo_name_lowercase}.penguintech.io` (if online)
+  - Example: `project-template` → `https://project-template.penguintech.io`
+  - Deployed from `main` branch with `beta-*` tags
+- **Production**: Either custom domain or PenguinCloud subdomain
+  - **Custom Domain**: Application-specific (e.g., `https://waddlebot.io`)
+  - **PenguinCloud**: `https://{repo_name_lowercase}.penguincloud.io`
+  - Deployed from tagged releases (`vX.X.X`)
 
 ### Pre-Commit Checklist
 
@@ -653,7 +667,7 @@ docker compose up -d --build <service-name>
 - Use content-based cache busting (e.g., hashing filenames: `app.abc123.js`) for production builds
 - Consider setting `Cache-Control: no-cache, must-revalidate` for development builds when appropriate
 
-📚 **Complete CI/CD documentation**: [Workflows](docs/WORKFLOWS.md) | [Standards](docs/STANDARDS.md)
+📚 **Complete CI/CD documentation**: [Workflows](docs/WORKFLOWS.md) | [Standards Index](docs/STANDARDS.md)
 
 ## Template Customization
 
@@ -661,7 +675,7 @@ docker compose up -d --build <service-name>
 
 **Enterprise Integration**: License server, multi-tenancy, usage tracking, audit logging, monitoring.
 
-📚 **Detailed customization guides**: [Development Standards](docs/STANDARDS.md)
+📚 **Detailed customization guides**: [Standards Index](docs/STANDARDS.md)
 
 
 ## License & Legal

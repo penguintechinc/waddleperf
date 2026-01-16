@@ -139,11 +139,8 @@ function TestRunner({ user, onLogout, authEnabled }: TestRunnerProps) {
       return
     }
 
-    const sessionId = sessionStorage.getItem('session_id')
-    websocketService.startTest({
-      ...testData,
-      session_id: sessionId || undefined,
-    })
+    // Send test data to WebSocket - JWT authentication is handled via auth header
+    websocketService.startTest(testData)
   }
 
   return (
