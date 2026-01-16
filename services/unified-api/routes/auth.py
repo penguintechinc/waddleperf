@@ -103,11 +103,20 @@ async def login():
                 'mfa_required': result.mfa_required
             }), status_code
 
+        # Fetch user details for response
+        user = await auth_service.get_user_by_id(result.user_id)
+
         return jsonify({
             'success': True,
             'access_token': result.access_token,
             'refresh_token': result.refresh_token,
-            'user_id': result.user_id
+            'user_id': result.user_id,
+            'user': {
+                'id': user.id,
+                'username': user.username,
+                'email': user.email,
+                'role': user.role
+            } if user else None
         }), 200
     except Exception as e:
         return jsonify({'error': f'Login error: {str(e)}'}), 500
