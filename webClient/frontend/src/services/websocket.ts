@@ -1,6 +1,5 @@
 import { io, Socket } from 'socket.io-client'
-
-const WS_URL = import.meta.env.VITE_API_URL || 'http://localhost:5000'
+import { getApiUrl } from '../config'
 
 export interface TestProgressData {
   progress: number
@@ -37,10 +36,11 @@ export class WebSocketService {
 
   connect(): Promise<void> {
     return new Promise((resolve, reject) => {
-      console.log('[WebSocket] Connecting to:', WS_URL)
+      const wsUrl = getApiUrl()
+      console.log('[WebSocket] Connecting to:', wsUrl)
 
       const accessToken = localStorage.getItem('access_token')
-      this.socket = io(WS_URL, {
+      this.socket = io(wsUrl, {
         transports: ['websocket', 'polling'],
         withCredentials: true,
         auth: {

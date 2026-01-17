@@ -1,8 +1,8 @@
 import axios, { AxiosError } from 'axios'
+import { getApiUrl } from '../config'
 
-// In production, API is served from same origin via ingress routing
-// In development, override with VITE_API_URL=http://localhost:5000
-const API_BASE_URL = import.meta.env.VITE_API_URL || ''
+// API URL from runtime config or Vite env
+const API_BASE_URL = getApiUrl()
 
 const api = axios.create({
   baseURL: API_BASE_URL,

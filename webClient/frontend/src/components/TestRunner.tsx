@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react'
 import { logout } from '../services/api'
 import { websocketService, TestCompleteData, TestProgressData } from '../services/websocket'
+import { getTestServerUrl } from '../config'
 import TestForm from './TestForm'
 import TestResults from './TestResults'
 import RealtimeCharts from './RealtimeCharts'
@@ -268,13 +269,13 @@ function TestRunner({ user, onLogout, authEnabled }: TestRunnerProps) {
 
           {activeTab === 'speedtest' && (
             <div className="speedtest-layout">
-              <SpeedTest testServerUrl={import.meta.env.VITE_TESTSERVER_URL || 'http://localhost:8080'} />
+              <SpeedTest testServerUrl={getTestServerUrl()} />
             </div>
           )}
 
           {activeTab === 'download' && (
             <div className="downloadtest-layout">
-              <DownloadTest testServerUrl={import.meta.env.VITE_TESTSERVER_URL || 'http://localhost:8080'} />
+              <DownloadTest testServerUrl={getTestServerUrl()} />
             </div>
           )}
 
