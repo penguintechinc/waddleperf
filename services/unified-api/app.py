@@ -11,6 +11,7 @@ from database.schema import initialize_schema
 from database.connection import get_dal, close_dal
 from routes import auth_bp, organizations_bp, devices_bp
 from services.auth_service import AuthService
+from socketio_server import create_socketio_app, sio
 
 logger = logging.getLogger(__name__)
 
@@ -106,20 +107,8 @@ def create_app(config_obj: Optional[Config] = None) -> Quart:
                 'timestamp': __import__('datetime').datetime.utcnow().isoformat()
             }), 503
 
-    # WebSocket route handler placeholder
-    @app.websocket('/ws')
-    async def websocket_handler(ws):
-        """WebSocket connection handler.
-
-        Handles WebSocket connections for real-time updates and communication.
-        """
-        try:
-            while True:
-                data = await ws.receive()
-                # Echo received data back to client
-                await ws.send(data)
-        except Exception as e:
-            logger.error(f"WebSocket error: {str(e)}")
+    # Note: WebSocket is handled by Socket.IO server (see socketio_server.py)
+    # The Socket.IO server is mounted as ASGI middleware
 
     # Error handlers
     @app.errorhandler(404)
@@ -147,24 +136,24 @@ def create_app(config_obj: Optional[Config] = None) -> Quart:
 
 
 # Create module-level app instance for production deployment
-app = create_app()
+quart_app = create_app()
+# Wrap with Socket.IO ASGI middleware for WebSocket support
+app = create_socketio_app(quart_app)
 
 
 if __name__ == '__main__':
     # Create application instance for local development
     config = Config()
-    dev_app = create_app(config)
+    dev_quart_app = create_app(config)
+    # Wrap with Socket.IO ASGI middleware
+    dev_app = create_socketio_app(dev_quart_app)
 
-    # Run with hypercorn
+    # Run with hypercorn (ASGI server)
     import hypercorn.asyncio
+    from hypercorn.config import Config as HypercornConfig
 
-    asyncio.run(
-        hypercorn.asyncio.serve(
-            dev_app,
-            hypercorn.Config(
-                bind=['0.0.0.0:5000'],
-                workers=1,
-                debug=config.DEBUG
-            )
-        )
-    )
+    hypercorn_config = HypercornConfig()
+    hypercorn_config.bind = ['0.0.0.0:5000']
+    hypercorn_config.workers = 1
+
+    asyncio.run(hypercorn.asyncio.serve(dev_app, hypercorn_config))

@@ -80,10 +80,10 @@ services:
       MFA_REQUIRED: ${MFA_REQUIRED:-false}
       FLASK_ENV: development
       FLASK_DEBUG: 1
-      LOG_LEVEL: debug
+      LOG_LEVEL: DEBUG
       PORT: 5000
     ports:
-      - "5000:5000"
+      - "5002:5000"
       - "50051:50051"  # gRPC port
     depends_on:
       mariadb:
@@ -108,7 +108,7 @@ services:
       VITE_API_URL: http://localhost:5000
       NODE_ENV: development
     ports:
-      - "3000:80"
+      - "3002:80"
     volumes:
       - ./managerServer/frontend/src:/app/src:ro
       - ./managerServer/frontend/public:/app/public:ro
@@ -199,9 +199,6 @@ services:
 networks:
   waddleperf-network:
     driver: bridge
-    ipam:
-      config:
-        - subnet: 172.20.0.0/16
 
 volumes:
   mariadb_data:

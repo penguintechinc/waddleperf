@@ -176,6 +176,13 @@ spec:
             name: unified-api
             port:
               name: http
+      - path: /socket.io
+        pathType: Prefix
+        backend:
+          service:
+            name: unified-api
+            port:
+              name: http
       - path: /
         pathType: Prefix
         backend:

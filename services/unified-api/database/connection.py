@@ -1,5 +1,7 @@
 """PyDAL database connection manager for runtime operations"""
 import logging
+import os
+import tempfile
 from typing import Optional
 from pydal import DAL, Field
 
@@ -32,13 +34,17 @@ def get_dal(config) -> DAL:
 
     # Initialize DAL with connection pooling
     # Use migrate=False since SQLAlchemy handles schema creation
+    # Use secure temp directory for metadata
+    dal_folder = os.path.join(tempfile.gettempdir(), 'pydal_metadata')
+    os.makedirs(dal_folder, mode=0o700, exist_ok=True)  # Secure permissions: owner-only
+
     dal = DAL(
         db_uri,
         pool_size=config.DB_POOL_SIZE,
         migrate=False,  # SQLAlchemy handles schema, PyDAL only for operations
         fake_migrate=False,
         check_reserved=['all'],
-        folder='/tmp'  # Store metadata in /tmp
+        folder=dal_folder  # Secure temp directory for metadata
     )
 
     # Define table schemas for PyDAL to use (must match SQLAlchemy schema)
