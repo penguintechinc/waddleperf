@@ -1,3 +1,5 @@
+.venv-test/
+.venv/
 *.key
 */*.7z
 */*.apk
